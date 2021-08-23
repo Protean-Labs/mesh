@@ -11,6 +11,10 @@
 # ocamlbuild working directory
 _build/
 
+# esy
+_esy/
+esy.lock/
+
 # ocamlbuild targets
 *.byte
 *.native
@@ -27,3 +31,4 @@ setup.log
 
 # Local OPAM switch
 _opam/
+node_modules/

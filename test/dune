@@ -1,0 +1,4 @@
+(test
+ (name test)
+ (libraries mesh ounit2)
+ (preprocess (pps ppx_string)))

@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (public_name mesh-engine)
+ (libraries mesh)
+ (preprocess (pps ppx_string)))

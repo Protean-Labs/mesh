@@ -1,0 +1,28 @@
+{
+  "name": "mesh-engine",
+  "esy": {
+    "build": "dune build -p mesh-engine",
+    "buildDev":
+      "dune build --promote-install-files --root . --only-packages mesh-engine"
+  },
+  "scripts": {
+    "doc": "esy dune build @doc-private",
+    "graphgen": "esy x mesh-engine",
+    "test": "esy x dune runtest"
+  },
+  "dependencies": {
+    "@opam/easy_logging": "0.8.2",
+    "@opam/menhir": "20210419",
+    "@opam/ppx_string": "v0.14.1",
+    "@opam/reason": "3.7.0",
+    "@opam/rresult": "0.6.0",
+    "ocaml": "4.12.0"
+  },
+  "devDependencies": {
+    "@opam/dune": "2.9.0",
+    "@opam/ocaml-lsp-server": "1.7.0",
+    "@opam/odoc": "1.5.3",
+    "@opam/ounit2": "2.2.4",
+    "@opam/rtop": "3.7.0"
+  }
+}

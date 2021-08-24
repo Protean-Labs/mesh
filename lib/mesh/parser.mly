@@ -18,19 +18,31 @@
 
 %token EOF
 
-%start <Syntax.expr> expr_eof
+%start <Syntax.toplevel_cmd> toplevel
+%start <Syntax.toplevel_cmd list> file
+
 %%
 
-expr_eof:
-  | e = expr; EOF;    { e }
+file:
+  | EOF;                                      { [] }
+  | binding = lettop;                         { binding }
+  | e = exprtop;                              { e }
+
+lettop:
+  | binding = let_binding; SEMICOLON; rest = file;      { binding :: rest }             
+
+exprtop:
+  | e = expr; SEMICOLON; rest = file                    { Expr e :: rest }
+
+toplevel:
+  | e = expr; EOF                                       { Expr e }
+  | binding = let_binding; EOF                          { binding }
+
+let_binding: LET; varname = VAR; EQUALS; e = expr;   { Let (varname, e) }
 
 expr:
-  | LET; varname = VAR; EQUALS; e = expr; SEMICOLON; rest = expr;   { Let (varname, e, rest) }
-  | e = simple_expr;                                                { e }
-
-simple_expr:
-  | varname = VAR;                                                  { Var varname }
-  | lit = literal;                                                  { Lit lit }
+  | varname = VAR;                            { Var varname }
+  | lit = literal;                            { Lit lit }
 
 literal:
   | v = BOOL;     { Bool v }

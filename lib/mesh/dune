@@ -1,6 +1,6 @@
 (library
  (name mesh)
- (libraries easy_logging)
+ (libraries easy_logging rresult)
  (preprocess (pps ppx_string)))
 
 (menhir (modules parser) (infer false))

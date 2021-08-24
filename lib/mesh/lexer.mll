@@ -31,7 +31,7 @@ rule token = parse
 | "true"            { BOOL (true) }
 | "false"           { BOOL (false) }
 | int as lit        { INT (int_of_string lit) }
-| float as lit      { FLOAT (float_of_string lit)}
+| float as lit      { FLOAT (float_of_string lit) }
 | '"'               { read_string (Buffer.create 16) lexbuf }
 | var as varname    { VAR (varname) }
 | eof               { EOF }
@@ -40,5 +40,5 @@ rule token = parse
 and read_string buf = parse
 | '"'               { STRING (Buffer.contents buf) }
 | [^ '"' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_string buf lexbuf}
-| eof { raise (SyntaxError ("String is not terminated")) }
-| _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+| eof               { raise (SyntaxError ("String is not terminated")) }
+| _                 { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }

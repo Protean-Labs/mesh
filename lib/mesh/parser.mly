@@ -29,7 +29,7 @@ file:
   | e = exprtop;                              { e }
 
 lettop:
-  | binding = let_binding; SEMICOLON; rest = file;      { binding :: rest }             
+  | binding = let_binding; SEMICOLON; rest = file;      { binding :: rest }
 
 exprtop:
   | e = expr; SEMICOLON; rest = file                    { Expr e :: rest }

@@ -14,6 +14,7 @@ _build/
 # esy
 _esy/
 esy.lock/
+node_modules/
 
 # ocamlbuild targets
 *.byte
@@ -31,4 +32,6 @@ setup.log
 
 # Local OPAM switch
 _opam/
-node_modules/
+
+# Misc
+notes/

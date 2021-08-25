@@ -18,8 +18,8 @@ let test_cases = [
   ("false;",                  Expr(bool_lit(false))),
 
   ("[];",                     Expr(EList([]))),
-  ("[1,2];",                  Expr(EList([intv(1),intv(2)]))),
-  ("[\"hello\",\"world\"];",  Expr(EList([stringv("hello"),stringv("world")]))),
+  ("[1,2];",                  Expr(EList([int_lit(1),int_lit(2)]))),
+  ("[\"hello\",\"world\"];",  Expr(EList([string_lit("hello"),string_lit("world")]))),
   ("();",                     Expr(ETuple([]))),
   ("(1,\"hello\");",          Expr(ETuple([int_lit(1), string_lit("hello")]))),
 
@@ -37,8 +37,8 @@ let test_cases = [
   ("let x = false;",                  Let("x", bool_lit(false))),
 
   ("let x = [];",                     Let("x", EList([]))),
-  ("let x = [1,2];",                  Let("x", EList([intv(1),intv(2)]))),
-  ("let x = [\"hello\",\"world\"];",  Let("x", EList([stringv("hello"),stringv("world")]))),
+  ("let x = [1,2];",                  Let("x", EList([int_lit(1),int_lit(2)]))),
+  ("let x = [\"hello\",\"world\"];",  Let("x", EList([string_lit("hello"),string_lit("world")]))),
   ("let x = ();",                     Let("x", ETuple([]))),
   ("let x = (1,\"hello\");",          Let("x", ETuple([int_lit(1),string_lit("hello")])))
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));

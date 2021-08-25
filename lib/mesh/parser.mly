@@ -46,7 +46,7 @@ let_binding: LET; varname = VAR; EQUALS; e = expr;   { Let (varname, e) }
 expr:
   | varname = VAR;                                                 { EVar varname }
   | lit = literal;                                                 { ELit lit }
-  | l = delimited(LBRACK, separated_list(COMMA, literal), RBRACK)  { EList l }
+  | l = delimited(LBRACK, separated_list(COMMA, expr), RBRACK)  { EList l }
   | t = delimited(LPAREN, separated_list(COMMA, expr), RPAREN)     { ETuple t }
 
 literal:

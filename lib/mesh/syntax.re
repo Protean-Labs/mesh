@@ -23,7 +23,7 @@ type name = string;
 type expr = 
   | ELit(literal)
   | EVar(name)
-  | EList(list(literal))
+  | EList(list(expr))
   | ETuple(list(expr))
 ;
 

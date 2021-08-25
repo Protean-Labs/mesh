@@ -24,6 +24,11 @@ rule token = parse
 | '='               { EQUALS }
 
 | ';'               { SEMICOLON }
+| '['               { LBRACK }
+| ']'               { RBRACK }
+| '('               { LPAREN }
+| ')'               { RPAREN }
+| ','               { COMMA }
 
 | "let"             { LET }
 

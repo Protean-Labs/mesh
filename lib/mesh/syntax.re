@@ -15,13 +15,16 @@ let string_of_literal = fun
   | Float(v)  => string_of_float(v)
   | String(v) => v
   | Bool(v)   => string_of_bool(v)
+ // | List(v)   => List.map(string_of_literal, v) |> String.concat(",")
 ;
 
 type name = string;
 
 type expr = 
-  | Lit(literal)
-  | Var(name)
+  | ELit(literal)
+  | EVar(name)
+  | EList(list(expr))
+  | ETuple(list(expr))
 ;
 
 type toplevel_cmd = 
@@ -29,7 +32,7 @@ type toplevel_cmd =
   | Let(string, expr)
 ;
 
-let int_lit    = (v) => Lit(Int(v));
-let float_lit  = (v) => Lit(Float(v));
-let string_lit = (v) => Lit(String(v));
-let bool_lit   = (v) => Lit(Bool(v));
+let int_lit    = (v) => ELit(Int(v));
+let float_lit  = (v) => ELit(Float(v));
+let string_lit = (v) => ELit(String(v));
+let bool_lit   = (v) => ELit(Bool(v));

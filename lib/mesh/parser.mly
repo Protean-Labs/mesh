@@ -5,6 +5,9 @@
 %token EQUALS
 
 %token SEMICOLON
+%token LBRACK RBRACK
+%token LPAREN RPAREN
+%token COMMA
 
 %token LET
 
@@ -41,8 +44,10 @@ toplevel:
 let_binding: LET; varname = VAR; EQUALS; e = expr;   { Let (varname, e) }
 
 expr:
-  | varname = VAR;                            { Var varname }
-  | lit = literal;                            { Lit lit }
+  | varname = VAR;                                                 { EVar varname }
+  | lit = literal;                                                 { ELit lit }
+  | l = delimited(LBRACK, separated_list(COMMA, expr), RBRACK)  { EList l }
+  | t = delimited(LPAREN, separated_list(COMMA, expr), RPAREN)     { ETuple t }
 
 literal:
   | v = BOOL;     { Bool v }

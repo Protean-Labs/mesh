@@ -1,4 +1,4 @@
-name: Build Mesh
+name: Build & Test Mesh
 
 on:
   push:

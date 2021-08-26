@@ -33,20 +33,21 @@ let dspace_repeat = string_repeat("  ");
 
 let rec string_of_expr = (level, e) => {
   switch (e) {
-    | ELit(lit) => dspace_repeat(level) ++ string_of_literal(lit)
-    | EVar(name) => dspace_repeat(level) ++ name
-    | EList([]) => dspace_repeat(level) ++ "[]"
-    | EList(l) => {
-        dspace_repeat(level) 
-        ++ "[\n" ++ (List.map((x => string_of_expr(level + 1, x)),l) |> String.concat(",\n")) 
-        ++ "\n" ++ dspace_repeat(level) ++ "]"
-      }
-    | ETuple([]) => dspace_repeat(level) ++ "()"
-    | ETuple(l) => {
-        dspace_repeat(level) 
-        ++ "(\n" ++ (List.map((x => string_of_expr(level + 1, x)),l) |> String.concat(",\n")) 
-        ++ "\n" ++  dspace_repeat(level) ++ ")"
-      }
+  | ELit(lit) => dspace_repeat(level) ++ string_of_literal(lit)
+  | EVar(name) => dspace_repeat(level) ++ name
+  | EList([]) => dspace_repeat(level) ++ "[]"
+  | EList(l) => {
+      dspace_repeat(level) 
+      ++ "[\n" ++ (List.map((x => string_of_expr(level + 1, x)), l) |> String.concat(",\n")) 
+      ++ "\n" ++ dspace_repeat(level) ++ "]"
+    }
+  | ETuple([]) => dspace_repeat(level) ++ "()"
+  | ETuple(l) => {
+      dspace_repeat(level) 
+      ++ "(\n" ++ (List.map((x => string_of_expr(level + 1, x)), l) |> String.concat(",\n")) 
+      ++ "\n" ++  dspace_repeat(level) ++ ")"
+    }
+  | EApp(e1, e2) => [%string "%{dspace_repeat level}%{string_of_expr level e1}(%{string_of_expr (level + 1) e2})"]
   }
 };
 

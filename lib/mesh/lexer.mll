@@ -13,7 +13,7 @@ let float   = '-'? digit+ '.' digit+
 let string  = (alpha|digit|'_')*
 let var     = (alpha) (alpha|digit|'_')* 
 
-let operator = ('*'| '+' | '-' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@')+
+let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@')+
 
 let white   = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"

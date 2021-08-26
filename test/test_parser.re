@@ -59,8 +59,16 @@ let test_cases = [
   ("++a / ++b;",                      Expr(EApp(EApp(EVar("/"), EApp(EVar("++"), EVar("a"))), EApp(EVar("++"), EVar("b"))))),
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
+let pp_ast = (ast) => 
+  switch (ast) {
+  | Error(`Msg(msg)) => msg
+  | Ok(ast) =>
+    List.map(string_of_top, ast)   |> (s) =>
+    String.concat(",\n", s);
+  }
+
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(Mesh.parse_file(mesh_src), expected);
+  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_ast, Mesh.parse_file(mesh_src), expected);
 
 let suite = 
   "test_parsing" >::: List.map(make_single_test, test_cases);

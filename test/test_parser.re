@@ -59,7 +59,9 @@ let test_cases = [
   ("++a / ++b;",                      Expr(EApp(EApp(EVar("/"), EApp(EVar("++"), EVar("a"))), EApp(EVar("++"), EVar("b"))))),
 
   // Anonymous functions
-  ("(a, b) => a;",                    Expr(EFun(EVar("a"), EFun(EVar("b"), EVar("a")))))
+  ("(a, b) => a;",                    Expr(EFun(EVar("a"), EFun(EVar("b"), EVar("a"))))),
+  ("(a) => (b) => a;",                Expr(EFun(EVar("a"), EFun(EVar("b"), EVar("a"))))),
+  ("() => 10;",                       Expr(EFun(unit_lit(), int_lit(10))))
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 
@@ -67,11 +69,11 @@ let pp_ast = (ast) =>
   | Error(`Msg(msg)) => msg
   | Ok(ast) =>
     List.map(string_of_top, ast)   |> (s) =>
-    String.concat(",\n", s);
+    "\n" ++ String.concat(",\n", s);
   }
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_ast, Mesh.parse_file(mesh_src), expected);
+  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_ast, expected, Mesh.parse_file(mesh_src));
 
 let suite = 
   "test_parsing" >::: List.map(make_single_test, test_cases);

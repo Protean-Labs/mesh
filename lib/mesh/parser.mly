@@ -2,7 +2,9 @@
   open Syntax
 
   let fold_fun e args = 
-    List.fold_right (fun acc arg -> EFun (arg, acc)) args e
+    match args with
+    | [] -> EFun ((unit_lit ()), e)
+    | args -> List.fold_right (fun arg acc -> EFun (arg, acc)) args e
 
 %}
 

@@ -3,19 +3,21 @@ type literal =
   | Float(float)
   | String(string)
   | Bool(bool)
+  | Unit
 ;
 
 let intv    = (v) => Int(v);
 let floatv  = (v) => Float(v);
 let stringv = (v) => String(v);
 let boolv   = (v) => Bool(v);
+let unitv   = () => Unit;
 
 let string_of_literal = fun
   | Int(v)    => string_of_int(v)
   | Float(v)  => string_of_float(v)
   | String(v) => v
   | Bool(v)   => string_of_bool(v)
- // | List(v)   => List.map(string_of_literal, v) |> String.concat(",")
+  | Unit      => "()"
 ;
 
 type name = string;
@@ -28,6 +30,12 @@ type expr =
   | EApp(expr, expr)
   | EFun(expr, expr)
 ;
+
+let int_lit    = (v) => ELit(Int(v));
+let float_lit  = (v) => ELit(Float(v));
+let string_lit = (v) => ELit(String(v));
+let bool_lit   = (v) => ELit(Bool(v));
+let unit_lit   = () => ELit(Unit);
 
 let rec string_repeat = (s,n) => n == 0 ? "" : s ++ string_repeat(s, n-1);
 let dspace_repeat = string_repeat("  ");
@@ -58,8 +66,3 @@ let string_of_top = fun
   | Expr(e) => string_of_expr(0, e)
   | Let(vname,e) => "Let(" ++ "\n  " ++ vname ++ "\n" ++ string_of_expr(1, e) ++ "\n)"
 ;
-
-let int_lit    = (v) => ELit(Int(v));
-let float_lit  = (v) => ELit(Float(v));
-let string_lit = (v) => ELit(String(v));
-let bool_lit   = (v) => ELit(Bool(v));

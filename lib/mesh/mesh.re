@@ -14,9 +14,9 @@ let parse_file = (source) =>
   | exn => R.error_msg(Printexc.to_string(exn) ++ ": " ++ Printexc.get_backtrace())
   };
 
-let print_ast = (source) => {
+let string_of_ast = (source) => {
   parse_toplevel(source)
   |> fun
-    | Ok(ast) => Syntax.string_of_top(ast) |> print_endline
-    | Error(_) => print_endline("error")
+    | Ok(ast) => Syntax.string_of_top(ast)
+    | Error(_) => "parsing error"
 }

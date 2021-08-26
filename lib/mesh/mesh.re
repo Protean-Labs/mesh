@@ -13,3 +13,10 @@ let parse_file = (source) =>
   | Lexer.SyntaxError(err) => R.error_msg(err)
   | exn => R.error_msg(Printexc.to_string(exn) ++ ": " ++ Printexc.get_backtrace())
   };
+
+let string_of_ast = (source) => {
+  parse_toplevel(source)
+  |> fun
+    | Ok(ast) => Syntax.string_of_top(ast)
+    | Error(`Msg(msg) ) => msg
+}

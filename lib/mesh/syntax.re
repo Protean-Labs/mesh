@@ -32,26 +32,22 @@ type expr =
 let rec string_repeat = (s,n) => n == 0 ? "" : s ++ string_repeat(s, n-1);
 let dspace_repeat = string_repeat("  ");
 
-let rec string_of_expr = (level, e) => {
+let rec string_of_expr = (level, e) =>
+  dspace_repeat(level)  |> (indent) =>
   switch (e) {
-  | ELit(lit) => dspace_repeat(level) ++ string_of_literal(lit)
-  | EVar(name) => dspace_repeat(level) ++ name
-  | EList([]) => dspace_repeat(level) ++ "[]"
-  | EList(l) => {
-      dspace_repeat(level) 
-      ++ "[\n" ++ (List.map((x => string_of_expr(level + 1, x)), l) |> String.concat(",\n")) 
-      ++ "\n" ++ dspace_repeat(level) ++ "]"
-    }
-  | ETuple([]) => dspace_repeat(level) ++ "()"
-  | ETuple(l) => {
-      dspace_repeat(level) 
-      ++ "(\n" ++ (List.map((x => string_of_expr(level + 1, x)), l) |> String.concat(",\n")) 
-      ++ "\n" ++  dspace_repeat(level) ++ ")"
-    }
-  | EApp(e1, e2) => [%string "%{dspace_repeat level}%{string_of_expr level e1}(%{string_of_expr (level + 1) e2})"]
-  | EFun(var, e) => [%string "%{dspace_repeat level}%{string_of_expr level var} =>\n%{string_of_expr (level + 1) e}"]
+  | ELit(lit)           => [%string "%{indent}(ELit %{string_of_literal lit})"]
+  | EVar(name)          => [%string "%{indent}(EVar %{name})"]
+  | EList([])           => [%string "%{indent}(EList [])"]
+  | EList(l)            => 
+    List.map((ele) => string_of_expr(level + 1, ele), l) |> String.concat("\n") |> (elements) =>
+    [%string "%{indent}(EList \n%{elements})"]
+  | ETuple([])          => [%string "%{indent}(ETuple ())"] 
+  | ETuple(l)           => 
+    List.map((ele) => string_of_expr(level + 1, ele), l) |> String.concat("\n") |> (elements) =>
+    [%string "%{indent}(ETuple \n%{elements})"]
+  | EApp(e1, e2)        => [%string "%{indent}(EApp %{string_of_expr 0 e1}\n%{string_of_expr (level + 1) e2})"]
+  | EFun(e1, e2)        => [%string "%{indent}(EFun %{string_of_expr 0 e1} =>\n%{string_of_expr (level + 1) e2})"]
   }
-};
 
 type toplevel_cmd = 
   | Expr(expr)

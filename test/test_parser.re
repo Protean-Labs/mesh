@@ -57,6 +57,9 @@ let test_cases = [
   
   // Prefix and Infix
   ("++a / ++b;",                      Expr(EApp(EApp(EVar("/"), EApp(EVar("++"), EVar("a"))), EApp(EVar("++"), EVar("b"))))),
+
+  // Anonymous functions
+  ("(a, b) => a;",                    Expr(EFun(EVar("a"), EFun(EVar("b"), EVar("a")))))
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

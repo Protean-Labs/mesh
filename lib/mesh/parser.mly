@@ -1,8 +1,13 @@
 %{
   open Syntax
+
+  let fold_fun e args = 
+    List.fold_right (fun acc arg -> EFun (arg, acc)) args e
+
 %}
 
 %token EQUALS
+%token ARROW
 
 %token SEMICOLON
 %token LBRACK RBRACK
@@ -50,9 +55,12 @@ expr:
   | varname = VAR;                                                  { EVar varname }
   | lit = literal;                                                  { ELit lit }
   | l = delimited(LBRACK, separated_list(COMMA, expr), RBRACK)      { EList l }
-  | t = delimited(LPAREN, separated_list(COMMA, expr), RPAREN)      { ETuple t }
+  | args = tuple; ARROW; e = expr;                                  { fold_fun e args }
+  | t = tuple;                                                      { ETuple t }
   | op = OPERATOR; e = expr;                                        { EApp (EVar op, e) }
   | e1 = expr; op = OPERATOR; e2 = expr;                            { EApp (EApp (EVar op, e1), e2) }
+
+tuple: t = delimited(LPAREN, separated_list(COMMA, expr), RPAREN)   { t }
 
 literal:
   | v = BOOL;     { Bool v }

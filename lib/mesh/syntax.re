@@ -26,6 +26,7 @@ type expr =
   | EList(list(expr))
   | ETuple(list(expr))
   | EApp(expr, expr)
+  | EFun(expr, expr)
 ;
 
 let rec string_repeat = (s,n) => n == 0 ? "" : s ++ string_repeat(s, n-1);
@@ -48,9 +49,9 @@ let rec string_of_expr = (level, e) => {
       ++ "\n" ++  dspace_repeat(level) ++ ")"
     }
   | EApp(e1, e2) => [%string "%{dspace_repeat level}%{string_of_expr level e1}(%{string_of_expr (level + 1) e2})"]
+  | EFun(var, e) => [%string "%{dspace_repeat level}%{string_of_expr level var} =>\n%{string_of_expr (level + 1) e}"]
   }
 };
-
 
 type toplevel_cmd = 
   | Expr(expr)

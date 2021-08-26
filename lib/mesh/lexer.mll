@@ -13,6 +13,8 @@ let float   = '-'? digit+ '.' digit+
 let string  = (alpha|digit|'_')*
 let var     = (alpha) (alpha|digit|'_')* 
 
+let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@')+
+
 let white   = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 
@@ -31,6 +33,8 @@ rule token = parse
 | ','               { COMMA }
 
 | "let"             { LET }
+
+| operator as op    { OPERATOR (op) }
 
 (* Literals *)
 | "true"            { BOOL (true) }

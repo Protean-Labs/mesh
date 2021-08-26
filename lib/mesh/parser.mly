@@ -11,6 +11,9 @@
 
 %token LET
 
+%token <string> OPERATOR
+%left OPERATOR
+
 // Literals
 %token <bool>   BOOL
 %token <int>    INT
@@ -41,13 +44,15 @@ toplevel:
   | e = expr; EOF                                       { Expr e }
   | binding = let_binding; EOF                          { binding }
 
-let_binding: LET; varname = VAR; EQUALS; e = expr;   { Let (varname, e) }
+let_binding: LET; varname = VAR; EQUALS; e = expr;      { Let (varname, e) }
 
 expr:
-  | varname = VAR;                                                 { EVar varname }
-  | lit = literal;                                                 { ELit lit }
-  | l = delimited(LBRACK, separated_list(COMMA, expr), RBRACK)  { EList l }
-  | t = delimited(LPAREN, separated_list(COMMA, expr), RPAREN)     { ETuple t }
+  | varname = VAR;                                                  { EVar varname }
+  | lit = literal;                                                  { ELit lit }
+  | l = delimited(LBRACK, separated_list(COMMA, expr), RBRACK)      { EList l }
+  | t = delimited(LPAREN, separated_list(COMMA, expr), RPAREN)      { ETuple t }
+  | op = OPERATOR; e = expr;                                        { EApp (EVar op, e) }
+  | e1 = expr; op = OPERATOR; e2 = expr;                            { EApp (EApp (EVar op, e1), e2) }
 
 literal:
   | v = BOOL;     { Bool v }

@@ -25,6 +25,7 @@ type expr =
   | EVar(name)
   | EList(list(expr))
   | ETuple(list(expr))
+  | EApp(expr, expr)
 ;
 
 type toplevel_cmd = 

@@ -18,5 +18,5 @@ let string_of_ast = (source) => {
   parse_toplevel(source)
   |> fun
     | Ok(ast) => Syntax.string_of_top(ast)
-    | Error(_) => "parsing error"
+    | Error(`Msg(msg) ) => msg
 }

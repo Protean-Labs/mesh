@@ -24,6 +24,7 @@ rule token = parse
 | white             { token lexbuf }
 
 | '='               { EQUALS }
+| "=>"              { ARROW }
 
 | ';'               { SEMICOLON }
 | '['               { LBRACK }

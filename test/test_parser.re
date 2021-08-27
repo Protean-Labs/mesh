@@ -61,7 +61,12 @@ let test_cases = [
   // Anonymous functions
   ("(a, b) => a;",                    Expr(EFun(EVar("a"), EFun(EVar("b"), EVar("a"))))),
   ("(a) => (b) => a;",                Expr(EFun(EVar("a"), EFun(EVar("b"), EVar("a"))))),
-  ("() => 10;",                       Expr(EFun(unit_lit(), int_lit(10))))
+  ("() => 10;",                       Expr(EFun(unit_lit(), int_lit(10)))),
+
+  // Function binding
+  ("let f = (a, b) => a;",            Let("f", EFun(EVar("a"), EFun(EVar("b"), EVar("a"))))),
+  ("let f = (a) => (b) => a;",        Let("f", EFun(EVar("a"), EFun(EVar("b"), EVar("a"))))),
+  ("let f = () => 10;",               Let("f", EFun(unit_lit(), int_lit(10)))),
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

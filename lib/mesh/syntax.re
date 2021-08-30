@@ -73,7 +73,61 @@ let string_of_top = fun
 // ================================================================
 // Types
 // ================================================================
+type id = int;
+type level = int;
+
+
 type typ =
-  | TInt
-  | TBool
+  | TConst(name)
+  | TFun(list(typ),typ)
+  | TApp(typ, list(typ))
+  | TTuple(list(typ))
+  | TList(typ)
+  | TVar(ref(tvar))
+and tvar = 
+  | Free(id,level)
+  | Constrained(typ)
+  | Quantified(id)
 ;
+
+let string_of_typ = (typ) => {
+  let id_name_map = Hashtbl.create(10);
+  let count = ref(0);
+
+  let next_name = () => {
+    let i = count^;
+    incr(count);
+    let tvar_char = String.make(1,(Char.chr(97 + i mod 26)));
+    let tvar_index = i > 26 ? string_of_int(1 / 26) : ""; 
+    [%string "%{tvar_char}%{tvar_index}"];
+  }
+
+  let concat_typ_strings = (f,typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
+
+  let rec f = (is_simple, typ) => 
+    switch(typ) {
+      | TConst(name) => name
+      | TApp(ftyp, arg_typs) => [%string "%{f true ftyp}[%{concat_typ_strings f arg_typs}]"]
+      | TFun(arg_typs, rtyp) => {
+        let arrow_typ_string = switch (arg_typs) {
+          | [arg_typ] => [%string "%{f true arg_typ} => %{f false rtyp}"]
+          | _ => [%string "(%{concat_typ_strings f arg_typs}) => %{f false rtyp}"]
+        };
+        is_simple ? [%string "(%{arrow_typ_string})"] : arrow_typ_string;
+      }
+      | TTuple(l) => [%string "(%{concat_typ_strings f l})"]
+      | TList(typ) => [%string "list(%{f false typ})"]
+      | TVar({contents: Quantified(id)}) => {
+          try (Hashtbl.find(id_name_map,id)){
+          | Not_found => {
+            let name = next_name();
+            Hashtbl.add(id_name_map, id, name);
+            name; 
+          }
+        }
+      }
+      | TVar( {contents: Free(id, _)}) => [%string "_%{string_of_int(id)}"]
+      | TVar( {contents: Constrained(typ)}) => f(is_simple,typ)
+    };
+  f(false,typ);
+ }

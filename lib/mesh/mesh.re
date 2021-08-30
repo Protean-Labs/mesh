@@ -1,4 +1,5 @@
 module Syntax = Syntax;
+module Infer = Infer;
 
 open Rresult;
 
@@ -19,4 +20,4 @@ let string_of_ast = (source) => {
   |> fun
     | Ok(ast) => Syntax.string_of_top(ast)
     | Error(`Msg(msg) ) => msg
-}
+};

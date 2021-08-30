@@ -79,13 +79,13 @@ type level = int;
 
 type typ =
   | TConst(name)
-  | TFun(list(typ),typ)
+  | TFun(list(typ), typ)
   | TApp(typ, list(typ))
   | TTuple(list(typ))
   | TList(typ)
   | TVar(ref(tvar))
 and tvar = 
-  | Free(id,level)
+  | Free(id, level)
   | Constrained(typ)
   | Quantified(id)
 ;
@@ -97,12 +97,12 @@ let string_of_typ = (typ) => {
   let next_name = () => {
     let i = count^;
     incr(count);
-    let tvar_char = String.make(1,(Char.chr(97 + i mod 26)));
+    let tvar_char = String.make(1, (Char.chr(97 + i mod 26)));
     let tvar_index = i > 26 ? string_of_int(1 / 26) : ""; 
     [%string "%{tvar_char}%{tvar_index}"];
   }
 
-  let concat_typ_strings = (f,typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
+  let concat_typ_strings = (f, typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
 
   let rec f = (is_simple, typ) => 
     switch(typ) {
@@ -118,7 +118,7 @@ let string_of_typ = (typ) => {
       | TTuple(l) => [%string "(%{concat_typ_strings f l})"]
       | TList(typ) => [%string "list(%{f false typ})"]
       | TVar({contents: Quantified(id)}) => {
-          try (Hashtbl.find(id_name_map,id)){
+          try (Hashtbl.find(id_name_map, id)){
           | Not_found => {
             let name = next_name();
             Hashtbl.add(id_name_map, id, name);
@@ -127,7 +127,7 @@ let string_of_typ = (typ) => {
         }
       }
       | TVar( {contents: Free(id, _)}) => [%string "_%{string_of_int(id)}"]
-      | TVar( {contents: Constrained(typ)}) => f(is_simple,typ)
+      | TVar( {contents: Constrained(typ)}) => f(is_simple, typ)
     };
-  f(false,typ);
+  f(false, typ);
  }

@@ -73,9 +73,9 @@ let test_cases = [
   ("let f = () => 10;",               ELet(PVar("f"), EFun(PLit(Unit), int_lit(10)))),
 
   // Let bindings with patterns
-  ("let (a, b) = (0, \"hello\")",                 ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), string_lit("hello")]))),
-  ("let (a, b) = (0, (\"hello\", 1.0))",          ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])]))),
-  ("let (a, (b, c)) = (0, (\"hello\", 1.0))",     ELet(PTuple([PVar("a"), PTuple([PVar("b"), PVar("c")])]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])])))
+  ("let (a, b) = (0, \"hello\");",                 ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), string_lit("hello")]))),
+  ("let (a, b) = (0, (\"hello\", 1.0));",          ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])]))),
+  ("let (a, (b, c)) = (0, (\"hello\", 1.0));",     ELet(PTuple([PVar("a"), PTuple([PVar("b"), PVar("c")])]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])])))
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

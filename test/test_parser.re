@@ -22,11 +22,13 @@ let test_cases = [
   ("[1,2];",                  EList([int_lit(1), int_lit(2)])),
   ("[\"hello\",\"world\"];",  EList([string_lit("hello"), string_lit("world")])),
   ("();",                     unit_lit()),
-  ("(1,\"hello\");",          ETuple([int_lit(1), string_lit("hello")])),
+  ("(1, \"hello\");",         ETuple([int_lit(1), string_lit("hello")])),
+  ("(1, (\"hello\", 0));",    ETuple([int_lit(1), ETuple([string_lit("hello"), int_lit(0)])])),
 
 
   // Let bindings
   ("let x = x;",                      ELet(PVar("x"), EVar("x"))),
+  ("let (x) = x;",                    ELet(PVar("x"), EVar("x"))),
   ("let x = x_asd;",                  ELet(PVar("x"), EVar("x_asd"))),
   ("let x = x0;",                     ELet(PVar("x"), EVar("x0"))),
   ("let x = 2;",                      ELet(PVar("x"), int_lit(2))),
@@ -43,6 +45,7 @@ let test_cases = [
   ("let x = [\"hello\",\"world\"];",  ELet(PVar("x"), EList([string_lit("hello"), string_lit("world")]))),
   ("let x = ();",                     ELet(PVar("x"), unit_lit())),
   ("let x = (1,\"hello\");",          ELet(PVar("x"), ETuple([int_lit(1), string_lit("hello")]))),
+  ("let x = (1, (\"hello\", 0));",    ELet(PVar("x"), ETuple([int_lit(1), ETuple([string_lit("hello"), int_lit(0)])]))),
 
   // Infix operators
   ("a + b;",                          EApp(EApp(EVar("+"), EVar("a")), EVar("b"))),
@@ -66,7 +69,13 @@ let test_cases = [
   // Function binding
   ("let f = (a, b) => a;",            ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
   ("let f = (a) => (b) => a;",        ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
+  ("let f = a => a;",                 ELet(PVar("f"), EFun(PVar("a"), EVar("a")))),
   ("let f = () => 10;",               ELet(PVar("f"), EFun(PLit(Unit), int_lit(10)))),
+
+  // Let bindings with patterns
+  ("let (a, b) = (0, \"hello\")",                 ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), string_lit("hello")]))),
+  ("let (a, b) = (0, (\"hello\", 1.0))",          ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])]))),
+  ("let (a, (b, c)) = (0, (\"hello\", 1.0))",     ELet(PTuple([PVar("a"), PTuple([PVar("b"), PVar("c")])]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])])))
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

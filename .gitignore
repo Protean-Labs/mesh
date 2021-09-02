@@ -35,3 +35,9 @@ _opam/
 
 # Misc
 notes/
+
+# Menhir stuff
+*.conflicts
+*.automaton
+parser.ml
+parser.mli

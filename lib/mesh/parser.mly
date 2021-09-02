@@ -1,27 +1,10 @@
 %{
   open Syntax
-
-  let fold_fun e args = 
-    match args with
-    | [] -> EFun ((unit_lit ()), e)
-    | args -> List.fold_right (fun arg acc -> EFun (arg, acc)) args e
-
+  open Parser_util
 %}
 
-%token EQUALS
-%token ARROW
-
-%token SEMICOLON
-%token LBRACK RBRACK
-%token LPAREN RPAREN
-%token COMMA
-
-%token LET
-
-%token <string> OPERATOR
-%left OPERATOR
-
 // Literals
+%token UNIT
 %token <bool>   BOOL
 %token <int>    INT
 %token <float>  FLOAT
@@ -29,43 +12,72 @@
 
 %token <string> VAR
 
+%token <string> OPERATOR
+
+%token LET
+
+%token SEMICOLON
+%token LBRACK RBRACK
+%token LPAREN RPAREN
+%token COMMA
+
+%token UNDERSCORE
+%token EQUALS
+%token ARROW
+
 %token EOF
 
-%start <Syntax.toplevel_cmd> toplevel
-%start <Syntax.toplevel_cmd list> file
+%left OPERATOR
+
+%right EQUALS
+%right ARROW
+
+// %start <Syntax.expr> expr
+%start <Syntax.expr list> file
 
 %%
 
 file:
-  | EOF;                                      { [] }
-  | binding = lettop;                         { binding }
-  | e = exprtop;                              { e }
-
-lettop:
-  | binding = let_binding; SEMICOLON; rest = file;      { binding :: rest }
-
-exprtop:
-  | e = expr; SEMICOLON; rest = file                    { Expr e :: rest }
-
-toplevel:
-  | e = expr; EOF                                       { Expr e }
-  | binding = let_binding; EOF                          { binding }
-
-let_binding: LET; varname = VAR; EQUALS; e = expr;      { Let (varname, e) }
+  | EOF                                                 { [] }
+  | e = expr SEMICOLON rest = file                      { e :: rest }
 
 expr:
-  | varname = VAR;                                                  { EVar varname }
-  | lit = literal;                                                  { ELit lit }
-  | l = delimited(LBRACK, separated_list(COMMA, expr), RBRACK)      { EList l }
-  | args = tuple; ARROW; e = expr;                                  { fold_fun e args }
-  | t = tuple;                                                      { ETuple t }
-  | op = OPERATOR; e = expr;                                        { EApp (EVar op, e) }
-  | e1 = expr; op = OPERATOR; e2 = expr;                            { EApp (EApp (EVar op, e1), e2) }
+  | e = fun_def                                                     { e }
+  | LET p = simple_pattern EQUALS e = expr                          { ELet (p, e) }
+  | varname = VAR                                                   { EVar varname }
+  | lit = literal                                                   { ELit lit }
+  | t = tuple                                                       { t }
+  | LBRACK l = separated_list(COMMA, expr) RBRACK                   { EList l }
+  | op = OPERATOR e = expr                                          { EApp (EVar op, e) }
+  | e1 = expr op = OPERATOR e2 = expr                               { EApp (EApp (EVar op, e1), e2) }
 
-tuple: t = delimited(LPAREN, separated_list(COMMA, expr), RPAREN)   { t }
+fun_def:
+  | LPAREN UNDERSCORE RPAREN ARROW e = expr                         
+  | UNDERSCORE ARROW e = expr                                       { EFun (PAny, e) }
+  | UNIT ARROW e = expr                                             { EFun (PLit Unit, e) }
+  | varname = VAR ARROW e = expr                                    { EFun (PVar varname, e) }
+  | args = tuple ARROW e = expr                                     { fold_fun e (fmt_fun_pattern args) }
+
+tuple: LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN       { ETuple t }
 
 literal:
-  | v = BOOL;     { Bool v }
-  | v = INT;      { Int v }
-  | v = FLOAT;    { Float v }
-  | v = STRING;   { String v }
+  | v = BOOL     { Bool v }
+  | v = INT      { Int v }
+  | v = FLOAT    { Float v }
+  | v = STRING   { String v }
+  | UNIT         { Unit }
+
+// ================================================================
+// Patterns
+// ================================================================
+simple_pattern:
+  | p = simple_pattern_ident                                        { p }
+  | p = simple_pattern_not_ident                                    { p }
+
+simple_pattern_ident:
+  | varname = VAR                                                   { PVar varname }
+
+simple_pattern_not_ident:
+  | UNDERSCORE                                                          { PAny }
+  | lit = literal                                                       { PLit lit }
+  | LPAREN t = separated_nonempty_list(COMMA, simple_pattern) RPAREN    { if List.length t == 1 then List.hd t else PTuple t }

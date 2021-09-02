@@ -23,6 +23,7 @@ rule token = parse
 | newline           { Lexing.new_line lexbuf; token lexbuf }
 | white             { token lexbuf }
 
+| '_'               { UNDERSCORE }
 | '='               { EQUALS }
 | "=>"              { ARROW }
 
@@ -38,6 +39,7 @@ rule token = parse
 | operator as op    { OPERATOR (op) }
 
 (* Literals *)
+| "()"              { UNIT }
 | "true"            { BOOL (true) }
 | "false"           { BOOL (false) }
 | int as lit        { INT (int_of_string lit) }

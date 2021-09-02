@@ -65,12 +65,23 @@ let test_cases = [
   ("(a, b) => a;",                    EFun(PVar("a"), EFun(PVar("b"), EVar("a")))),
   ("(a) => (b) => a;",                EFun(PVar("a"), EFun(PVar("b"), EVar("a")))),
   ("() => 10;",                       EFun(PLit(Unit), int_lit(10))),
+  ("() => f();",                      EFun(PLit(Unit), EApp(EVar("f"), unit_lit()))),
+  ("(a, b) => f(a + b);",             EFun(PVar("a"), EFun(PVar("b"), EApp(EVar("f"), EApp(EApp(EVar("+"), EVar("a")), EVar("b")))))),
 
   // Function binding
   ("let f = (a, b) => a;",            ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
   ("let f = (a) => (b) => a;",        ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
   ("let f = a => a;",                 ELet(PVar("f"), EFun(PVar("a"), EVar("a")))),
   ("let f = () => 10;",               ELet(PVar("f"), EFun(PLit(Unit), int_lit(10)))),
+
+  // Function application
+  ("f(a, b);",                        EApp(EApp(EVar("f"), EVar("a")), EVar("b"))),
+  ("f(a)(b);",                        EApp(EApp(EVar("f"), EVar("a")), EVar("b"))),
+  ("f((a, b));",                      EApp(EVar("f"), ETuple([EVar("a"), EVar("b")]))),
+  ("f(1);",                           EApp(EVar("f"), int_lit(1))),
+
+  // Function partial application
+  ("let g = f(a);",                   ELet(PVar("g"), EApp(EVar("f"), EVar("a")))),
 
   // Let bindings with patterns
   ("let (a, b) = (0, \"hello\");",                 ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), string_lit("hello")]))),

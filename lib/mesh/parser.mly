@@ -31,6 +31,7 @@
 
 %right EQUALS
 %right ARROW
+%nonassoc UNIT
 
 // %start <Syntax.expr> expr
 %start <Syntax.expr list> file
@@ -43,6 +44,7 @@ file:
 
 expr:
   | e = fun_def                                                     { e }
+  | e = fun_app                                                     { e }
   | LET p = simple_pattern EQUALS e = expr                          { ELet (p, e) }
   | varname = VAR                                                   { EVar varname }
   | lit = literal                                                   { ELit lit }
@@ -58,7 +60,11 @@ fun_def:
   | varname = VAR ARROW e = expr                                    { EFun (PVar varname, e) }
   | args = tuple ARROW e = expr                                     { fold_fun e (fmt_fun_pattern args) }
 
-tuple: LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN       { ETuple t }
+fun_app:
+  | e = expr UNIT                                                  { EApp (e, unit_lit ()) }
+  | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN      { fold_app (e) args }
+
+tuple: LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN      { ETuple t }
 
 literal:
   | v = BOOL     { Bool v }

@@ -25,4 +25,7 @@ let fmt_fun_pattern = fun
       (EFun PVar b =>
         e)) */
 let fold_fun = (e, args) => 
-  List.fold_right((arg, acc) => EFun (arg, acc), args, e) 
+  List.fold_right((arg, acc) => EFun(arg, acc), args, e);
+
+let fold_app = (e, args) =>
+  List.fold_left((acc, arg) => EApp(acc, arg), e, args);

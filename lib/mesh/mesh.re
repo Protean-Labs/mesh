@@ -1,4 +1,5 @@
 module Syntax = Syntax;
+module Infer = Infer;
 
 open Rresult;
 

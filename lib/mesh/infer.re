@@ -146,16 +146,54 @@ let type_name_of_literal = fun
   | Unit => TConst("unit")
 ; 
 
-
-let infer_exn = (e) =>
-  switch (e) {
-  | ELit(lit) => type_name_of_literal(lit)
-  // | ELit(...) => 
-  | _ => raise(TypeError("Not Implemented"))
+// Keep tuple structure when unpacking pattern?
+let expr_list_of_pattern = (p) => {
+  let rec f = (p, acc) => switch (p) {
+  | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
+  | PLit(lit) => [ELit(lit), ...acc]
+  | PVar(name) => [EVar(name), ...acc]
+  | _ => acc
   };
+  f(p, []);
+};
+
+let var_names_of_pattern = (pattern) => {
+  (pattern) 
+  |> expr_list_of_pattern 
+  |> List.filter((fun | EVar(_) => true | _ => false ))
+  |> List.map((fun | EVar(name) => name | _ => ""))
+};
+
+let rec infer_exn = (env, level) => fun
+  | ELit(lit) => type_name_of_literal(lit)
+  | EVar(name) => {
+      try (instantiate(level, Env.lookup(env, name))) {
+        | Not_found => raise(TypeError([%string "variable %{name}"]))
+      }
+    }
+  | EFun(pattern, body_expr) => {
+      let param_names = pattern |> var_names_of_pattern;
+      let param_typs = param_names |> List.map((_) => new_var(level));
+      let fn_env = List.fold_left2(
+        (env, param_name, param_typ) => Env.extend(env, param_name, param_typ),
+        env,
+        param_names,
+        param_typs
+      );
+      let return_typ = infer_exn(fn_env, level, body_expr);
+      TFun(param_typs, return_typ);
+    }
+  // let expression scope?
+  // match pattern binding to value expr type
+  // | ELet(pattern, expr) => {
+  //     let var_names = pattern |> var_names_of_pattern;
+
+  //   }
+  | _ => raise(TypeError("Not Implemented"))
+  ;
 
 
-let infer = (e) =>
-  try (R.ok @@ infer_exn(e)) {
+let infer = (env, level, e) =>
+  try (R.ok @@ infer_exn(env, level, e)) {
   | TypeError(msg) => R.error_msg(msg)
   };

@@ -147,6 +147,7 @@ let type_name_of_literal = fun
 ; 
 
 // Keep tuple structure when unpacking pattern?
+// make sure ordering is right
 let expr_list_of_pattern = (p) => {
   let rec f = (p, acc) => switch (p) {
   | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
@@ -162,6 +163,15 @@ let var_names_of_pattern = (pattern) => {
   |> expr_list_of_pattern 
   |> List.filter((fun | EVar(_) => true | _ => false ))
   |> List.map((fun | EVar(name) => name | _ => ""))
+};
+
+//keep ordering of application in returned list
+let param_list_from_app_expr = (expr) => {
+  let rec f = (expr, acc) => switch (expr) {
+    | EApp(fn_expr, p_expr) => f(fn_expr, [p_expr,...acc])
+    | _ => acc
+  };
+  f(expr,[]);
 };
 
 let rec infer_exn = (env, level) => fun
@@ -189,6 +199,13 @@ let rec infer_exn = (env, level) => fun
   //     let var_names = pattern |> var_names_of_pattern;
 
   //   }
+  | (EApp(fn_expr, _) as app_expr) => {
+      let params = param_list_from_app_expr(app_expr);
+      let (param_typs, return_typ) = 
+        match_fun_typ(List.length(params), infer_exn(env, level, fn_expr));
+      List.iter2(((param_typ, param) => unify(param_typ, infer_exn(env, level, param))), param_typs, params);
+      return_typ;
+    }
   | _ => raise(TypeError("Not Implemented"))
   ;
 

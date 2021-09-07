@@ -31,20 +31,14 @@ let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
     | TVar({contents: Constrained(typ)}) => f(typ)
     | TVar({contents: Quantified(_)}) => raise(TypeError("Cant check quantified variable"))
     | TVar({contents: Free(other_id, other_level)} as other_tvar) => {
-        (other_id == tvar_id)? 
-          raise(TypeError("Recursive types")): 
-          (other_level > tvar_level)? 
+      (other_id == tvar_id)? 
+      raise(TypeError("Recursive types")): 
+      (other_level > tvar_level)? 
             other_tvar := Free(other_id, tvar_level):
             ();
-      }
-    | TApp(fun_typ, param_typs) => {
-        f(fun_typ); 
-        List.iter(f, param_typs);
-      }
-    | TFun(param_typs, return_typ) => {
-        List.iter(f, param_typs); 
-        f(return_typ);
-      }
+    }
+    | TApp(fun_typ, param_typ) => {f(fun_typ); f(param_typ)}
+    | TFun(param_typ, return_typ) => {f(param_typ); f(return_typ)}
     | TConst(_) => ()
     | _ => raise(TypeError("Not implemented"))
   ;
@@ -55,11 +49,11 @@ let rec unify = (typ1, typ2) => {
   typ1 == typ2 ? () :
   switch (typ1, typ2) {
     | (TConst(name1), TConst(name2)) when name1 == name2 => ()
-    | (TApp(fun_typ1, param_typs1), TApp(fun_typ2, param_typs2)) => {
-      unify(fun_typ1, fun_typ2); List.iter2(unify, param_typs1, param_typs2);
+    | (TApp(fun_typ1, param_typ1), TApp(fun_typ2, param_typ2)) => {
+      unify(fun_typ1, fun_typ2); unify(param_typ1, param_typ2);
     };
-    | (TFun(param_typs1, return_typ1), TFun(param_typs2, return_typ2)) => {
-      List.iter2(unify, param_typs1, param_typs2); unify(return_typ1, return_typ2);
+    | (TFun(param_typ1, return_typ1), TFun(param_typ2, return_typ2)) => {
+      unify(param_typ1, param_typ2); unify(return_typ1, return_typ2);
     };
     | (TVar({contents: Constrained(typ1)}), typ2) => unify(typ1, typ2)
     | (typ1, TVar({contents: Constrained(typ2)})) => unify(typ1, typ2)
@@ -80,10 +74,10 @@ let rec unify = (typ1, typ2) => {
 let rec generalize = (level) => fun
   | TVar({contents: Free(id, other_level)}) when other_level > level => 
     TVar(ref(Quantified(id)))
-  | TApp(fun_typ, param_typs) => 
-    TApp(generalize(level, fun_typ), List.map(generalize(level), param_typs))
-  | TFun(param_typs, return_typ) => 
-    TFun(List.map(generalize(level), param_typs), generalize(level, return_typ))
+  | TApp(fun_typ, param_typ) => 
+    TApp(generalize(level, fun_typ), generalize(level, param_typ))
+  | TFun(param_typ, return_typ) => 
+    TFun(generalize(level, param_typ), generalize(level, return_typ))
   | TVar({contents: Constrained(typ)}) => generalize(level, typ)
   | TVar({contents: Quantified(_)}) as typ => typ
   | TVar({contents: Free(_)}) as typ => typ
@@ -107,38 +101,28 @@ let instantiate = (level, typ) => {
           };
       };
       | TVar({contents: Free(_)}) => typ
-      | TApp(fun_typ, param_typs) => TApp(f(fun_typ), List.map(f, param_typs))
-      | TFun(param_typs, return_typ) => TFun(List.map(f, param_typs), f(return_typ))
+      | TApp(fun_typ, param_typ) => TApp(f(fun_typ), f(param_typ))
+      | TFun(param_typ, return_typ) => TFun(f(param_typ), f(return_typ))
       | _ => raise(TypeError("not implemented"))
     };
   };
   f(typ);
 };
 
-let rec match_fun_typ = (num_params) => fun
-  | TFun(param_typs, return_typ) => {
-      (List.length(param_typs) != num_params)? 
-      raise(TypeError("Unexpected number of arguments")):
-      (param_typs, return_typ)
-    }
-  | TVar({contents: Constrained(typ)}) => match_fun_typ(num_params, typ)
+let rec match_fun_typ = fun
+  | TFun(param_typ, return_typ)              => (param_typ, return_typ)
+  | TVar({contents: Constrained(typ)})       => match_fun_typ(typ)
   | TVar({contents: Free(_, level)} as tvar) => {
-    let param_typs = {
-      let rec f = fun
-        | 0 => []
-        | n => [new_var(level), ...f(n-1)]
-      ;
-      f(num_params);
-    };
+    let param_typ = new_var(level);
     let return_typ = new_var(level);
-    tvar := Constrained(TFun(param_typs, return_typ));
-    (param_typs, return_typ);
+    tvar := Constrained(TFun(param_typ, return_typ));
+    (param_typ, return_typ);
   }
   | _ => raise(TypeError("Expected a function"))
 ;
 
 
-let type_name_of_literal = fun 
+let type_const_of_literal = fun 
   | Int(_) => TConst("int")
   | Float(_) => TConst("float")
   | String(_) => TConst("string")
@@ -146,52 +130,26 @@ let type_name_of_literal = fun
   | Unit => TConst("unit")
 ; 
 
-// Keep tuple structure when unpacking pattern?
-// make sure ordering is right
-let expr_list_of_pattern = (p) => {
-  let rec f = (p, acc) => switch (p) {
-  | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
-  | PLit(lit) => [ELit(lit), ...acc]
-  | PVar(name) => [EVar(name), ...acc]
-  | _ => acc
-  };
-  f(p, []);
-};
-
-let var_names_of_pattern = (pattern) => {
-  (pattern) 
-  |> expr_list_of_pattern 
-  |> List.filter((fun | EVar(_) => true | _ => false ))
-  |> List.map((fun | EVar(name) => name | _ => ""))
-};
-
-//keep ordering of application in returned list
-let param_list_from_app_expr = (expr) => {
-  let rec f = (expr, acc) => switch (expr) {
-    | EApp(fn_expr, p_expr) => f(fn_expr, [p_expr,...acc])
-    | _ => acc
-  };
-  f(expr,[]);
-};
-
-let rec infer_exn = (env, level) => fun
-  | ELit(lit) => type_name_of_literal(lit)
-  | EVar(name) => {
-      try (instantiate(level, Env.lookup(env, name))) {
+let infer_exn = (env, level, exprs) => {
+  let get_typ = (x => List.nth(x,0));
+  let rec f = (env, level, typs) => fun
+  | [ELit(lit), ...rest] => [type_const_of_literal(lit), ...typs] |> f(env, level, _, rest)
+  | [EVar(name), ...rest] => {
+      let typ = try (instantiate(level, Env.lookup(env, name))) {
         | Not_found => raise(TypeError([%string "variable %{name}"]))
       }
+      f(env, level, [typ, ...typs], rest)
     }
-  | EFun(pattern, body_expr) => {
-      let param_names = pattern |> var_names_of_pattern;
-      let param_typs = param_names |> List.map((_) => new_var(level));
-      let fn_env = List.fold_left2(
-        (env, param_name, param_typ) => Env.extend(env, param_name, param_typ),
-        env,
-        param_names,
-        param_typs
-      );
-      let return_typ = infer_exn(fn_env, level, body_expr);
-      TFun(param_typs, return_typ);
+  | [EFun(param_pat, body_expr), ...rest] => {
+      let (param_name,param_typ) = param_pat |> fun 
+        | PVar(name) => (name, new_var(level)) 
+        | PLit(l)    => ("", type_const_of_literal(l))
+        | PAny       => ("", new_var(level))
+        | PTuple(_)  => raise(TypeError("Tuple pattern as arg"))
+      ;
+      let fn_env = Env.extend(env, param_name, param_typ);
+      let return_typ = f(fn_env, level,[] ,[body_expr]) |> get_typ;
+      f(env, level, [TFun(param_typ, return_typ), ...typs], rest);
     }
   // let expression scope?
   // match pattern binding to value expr type
@@ -199,16 +157,17 @@ let rec infer_exn = (env, level) => fun
   //     let var_names = pattern |> var_names_of_pattern;
 
   //   }
-  | (EApp(fn_expr, _) as app_expr) => {
-      let params = param_list_from_app_expr(app_expr);
-      let (param_typs, return_typ) = 
-        match_fun_typ(List.length(params), infer_exn(env, level, fn_expr));
-      List.iter2(((param_typ, param) => unify(param_typ, infer_exn(env, level, param))), param_typs, params);
-      return_typ;
+  | [EApp(fn_expr, param_expr), ...rest] => {
+      let (param_typ, return_typ) = 
+        match_fun_typ(f(env, level, [], [fn_expr]) |> get_typ);
+      unify(param_typ, f(env, level, [], [param_expr]) |> get_typ);
+      f(env, level, [return_typ,...typs], rest);
     }
+  | [] => typs
   | _ => raise(TypeError("Not Implemented"))
   ;
-
+  f(env, level, [], exprs);
+};
 
 let infer = (env, level, e) =>
   try (R.ok @@ infer_exn(env, level, e)) {

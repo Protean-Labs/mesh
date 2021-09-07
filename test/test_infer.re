@@ -10,18 +10,18 @@ let test_cases = [
   (string_lit("hello"),        TConst("string")),
   (bool_lit(true),             TConst("bool")),
   (unit_lit(),                 TConst("unit")),
-]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
+]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok([expected])));
 
-let pp_typ_signatures = (typ) => 
-  switch (typ) {
+let pp_typ_signatures = (typs) => 
+  switch (typs) {
   | Error(`Msg(msg)) => msg
-  | Ok(typ) => string_of_typ(typ)
+  | Ok(l) => List.map(string_of_typ, l) |> List.nth(_,0)
   }
 
 
 let make_single_test = ((mesh_expr, expected)) =>
   (mesh_expr |> string_of_expr(0)) >:: (_) => {
-    assert_equal(~printer=pp_typ_signatures, expected, infer(Env.empty, 0, mesh_expr));
+    assert_equal(~printer=pp_typ_signatures, expected, infer(Env.empty, 0, [mesh_expr]));
   }
 
 let suite = 

@@ -88,8 +88,8 @@ type level = int;
 
 type typ =
   | TConst(name)
-  | TFun(list(typ), typ)
-  | TApp(typ, list(typ))
+  | TFun(typ, typ)
+  | TApp(typ, typ)
   | TTuple(list(typ))
   | TList(typ)
   | TVar(ref(tvar))
@@ -116,13 +116,11 @@ let string_of_typ = (typ) => {
   let rec f = (is_simple, typ) => 
     switch(typ) {
     | TConst(name) => name
-    | TApp(ftyp, arg_typs) => [%string "%{f true ftyp}[%{concat_typ_strings f arg_typs}]"]
-    | TFun(arg_typs, rtyp) => 
-      let arrow_typ_string = switch (arg_typs) {
-        | [arg_typ] => [%string "%{f true arg_typ} => %{f false rtyp}"]
-        | _ => [%string "(%{concat_typ_strings f arg_typs}) => %{f false rtyp}"]
-      };
+    | TApp(ftyp, param_typ) => [%string "%{f true ftyp}[%{f false param_typ}]"]
+    | TFun(param_typ, rtyp) => {
+      let arrow_typ_string = [%string "%{f true param_typ} => %{f false rtyp}"]
       is_simple ? [%string "(%{arrow_typ_string})"] : arrow_typ_string;
+    }
     | TTuple(l) => [%string "(%{concat_typ_strings f l})"]
     | TList(typ) => [%string "list(%{f false typ})"]
     | TVar({contents: Quantified(id)}) => {

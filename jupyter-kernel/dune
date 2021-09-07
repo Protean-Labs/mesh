@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (public_name mesh-kernel)
+ (libraries mesh jupyter-kernel)
+ (preprocess (pps ppx_string)))

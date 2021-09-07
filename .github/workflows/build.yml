@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: 16
       - name: Install system dependencies
-        run: sudo apt-get install libzmq-dev
+        run: sudo apt-get install libzmq5
       - name: Install esy
         run: npm install -g esy && ls
       - uses: esy/github-action@v1
@@ -35,7 +35,7 @@ jobs:
         node-version: 16
     
     - name: Install system dependencies
-      run: sudo apt-get install libzmq-dev
+      run: sudo apt-get install libzmq5
     - name: Install esy
       run: npm install -g esy && ls
 

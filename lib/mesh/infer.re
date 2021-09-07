@@ -40,7 +40,7 @@ let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
     | TApp(fun_typ, param_typ) => {f(fun_typ); f(param_typ)}
     | TFun(param_typ, return_typ) => {f(param_typ); f(return_typ)}
     | TConst(_) => ()
-    | _ => raise(TypeError("Not implemented"))
+    | _ => raise(TypeError("occurs check not implemented"))
   ;
   f(typ);
 };
@@ -82,7 +82,7 @@ let rec generalize = (level) => fun
   | TVar({contents: Quantified(_)}) as typ => typ
   | TVar({contents: Free(_)}) as typ => typ
   | TConst(_) as typ => typ
-  | _ => raise(TypeError("not implemented"))
+  | _ => raise(TypeError("generalize not implemented"))
 ;
 
 let instantiate = (level, typ) => {
@@ -103,7 +103,7 @@ let instantiate = (level, typ) => {
       | TVar({contents: Free(_)}) => typ
       | TApp(fun_typ, param_typ) => TApp(f(fun_typ), f(param_typ))
       | TFun(param_typ, return_typ) => TFun(f(param_typ), f(return_typ))
-      | _ => raise(TypeError("not implemented"))
+      | _ => raise(TypeError("instantiate not implemented"))
     };
   };
   f(typ);
@@ -129,16 +129,32 @@ let type_const_of_literal = fun
   | Bool(_) => TConst("bool")
   | Unit => TConst("unit")
 ; 
+let expr_list_of_pattern = (p) => {
+  let rec f = (p, acc) => switch (p) {
+  | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
+  | PLit(lit) => [ELit(lit), ...acc]
+  | PVar(name) => [EVar(name), ...acc]
+  | _ => acc
+  };
+  f(p, []);
+};
+
+let var_names_of_pattern = (pattern) => {
+  (pattern) 
+  |> expr_list_of_pattern 
+  |> List.filter((fun | EVar(_) => true | _ => false ))
+  |> List.map((fun | EVar(name) => name | _ => ""))
+};
 
 let infer_exn = (env, level, exprs) => {
   let get_typ = (x => List.nth(x,0));
   let rec f = (env, level, typs) => fun
-  | [ELit(lit), ...rest] => [type_const_of_literal(lit), ...typs] |> f(env, level, _, rest)
+  | [ELit(lit), ...rest] => typs@[type_const_of_literal(lit)] |> f(env, level, _, rest)
   | [EVar(name), ...rest] => {
       let typ = try (instantiate(level, Env.lookup(env, name))) {
         | Not_found => raise(TypeError([%string "variable %{name}"]))
       }
-      f(env, level, [typ, ...typs], rest)
+      f(env, level, typs@[typ], rest)
     }
   | [EFun(param_pat, body_expr), ...rest] => {
       let (param_name,param_typ) = param_pat |> fun 
@@ -149,22 +165,26 @@ let infer_exn = (env, level, exprs) => {
       ;
       let fn_env = Env.extend(env, param_name, param_typ);
       let return_typ = f(fn_env, level,[] ,[body_expr]) |> get_typ;
-      f(env, level, [TFun(param_typ, return_typ), ...typs], rest);
+      f(env, level, typs@[TFun(param_typ, return_typ)], rest);
     }
-  // let expression scope?
-  // match pattern binding to value expr type
-  // | ELet(pattern, expr) => {
-  //     let var_names = pattern |> var_names_of_pattern;
-
-  //   }
+  | [ELet(pattern, expr), ...rest] => {
+      let var_names = pattern |> var_names_of_pattern;
+      let gen_var_typs = f(env, level + 1, [],[expr])
+      |> List.map(generalize(level));
+      let new_env = List.fold_right2(
+        (var_name, var_typ, old_env) => Env.extend(old_env, var_name, var_typ),
+        var_names, gen_var_typs, env
+        ) 
+      f(new_env, level, typs@gen_var_typs, rest);
+    }
   | [EApp(fn_expr, param_expr), ...rest] => {
       let (param_typ, return_typ) = 
         match_fun_typ(f(env, level, [], [fn_expr]) |> get_typ);
       unify(param_typ, f(env, level, [], [param_expr]) |> get_typ);
-      f(env, level, [return_typ,...typs], rest);
+      f(env, level, typs@[return_typ], rest);
     }
   | [] => typs
-  | _ => raise(TypeError("Not Implemented"))
+  | _ => raise(TypeError("inference not implemented"))
   ;
   f(env, level, [], exprs);
 };

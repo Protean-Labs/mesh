@@ -55,6 +55,12 @@ let rec unify = (typ1, typ2) => {
     | (TFun(param_typ1, return_typ1), TFun(param_typ2, return_typ2)) => {
       unify(param_typ1, param_typ2); unify(return_typ1, return_typ2);
     };
+    | (TList(typ1), TList(typ2)) => unify(typ1, typ2)
+    | (TTuple(typs1), TTuple(typs2)) => {
+        try(List.iter2((typ1, typ2) => unify(typ1,typ2), typs1, typs2)){
+          | Invalid_argument(_) => raise(TypeError("Cant unify tuples of different lengths"))
+        }
+      }
     | (TVar({contents: Constrained(typ1)}), typ2) => unify(typ1, typ2)
     | (typ1, TVar({contents: Constrained(typ2)})) => unify(typ1, typ2)
     | (TVar({contents: Free(id1, _)}), TVar({contents: Free(id2, _)})) when id1 == id2 =>
@@ -78,11 +84,13 @@ let rec generalize = (level) => fun
     TApp(generalize(level, fun_typ), generalize(level, param_typ))
   | TFun(param_typ, return_typ) => 
     TFun(generalize(level, param_typ), generalize(level, return_typ))
+  | TList(typ) => TList(generalize(level, typ))
+  | TTuple(l) => TTuple(List.map(generalize(level), l))
   | TVar({contents: Constrained(typ)}) => generalize(level, typ)
   | TVar({contents: Quantified(_)}) as typ => typ
   | TVar({contents: Free(_)}) as typ => typ
   | TConst(_) as typ => typ
-  | _ => raise(TypeError("generalize not implemented"))
+  // | _ => raise(TypeError("generalize not implemented"))
 ;
 
 let instantiate = (level, typ) => {
@@ -103,7 +111,9 @@ let instantiate = (level, typ) => {
       | TVar({contents: Free(_)}) => typ
       | TApp(fun_typ, param_typ) => TApp(f(fun_typ), f(param_typ))
       | TFun(param_typ, return_typ) => TFun(f(param_typ), f(return_typ))
-      | _ => raise(TypeError("instantiate not implemented"))
+      | TList(typ1) => TList(f(typ1))
+      | TTuple(l) => TTuple(List.map(f, l))
+     // | _ => raise(TypeError("instantiate not implemented"))
     };
   };
   f(typ);
@@ -183,8 +193,21 @@ let infer_exn = (env, level, exprs) => {
       unify(param_typ, f(env, level, [], [param_expr]) |> get_typ);
       f(env, level, typs@[return_typ], rest);
     }
+  | [EList(l), ...rest] => {
+      let list_typ = f(env, level, [], l) |> fun
+      | []                => [TList(new_var(level))]
+      | [lone]            => [TList(lone)]
+      | [first, ...rest]  => {
+        List.for_all((x => x == first), rest)?[TList(first)]: raise(TypeError("List types dont match"))
+      };
+      f(env, level, typs@list_typ, rest);
+    }
+  | [ETuple(l), ...rest] => {
+      let tuple_typs = f(env, level, [], l);
+      f(env, level, typs@tuple_typs, rest);
+    }
   | [] => typs
-  | _ => raise(TypeError("inference not implemented"))
+  // | _ => raise(TypeError("inference not implemented"))
   ;
   f(env, level, [], exprs);
 };

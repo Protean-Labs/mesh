@@ -179,12 +179,16 @@ let infer_exn = (env, level, exprs) => {
     }
   | [ELet(pattern, expr), ...rest] => {
       let var_names = pattern |> var_names_of_pattern;
-      let gen_var_typs = f(env, level + 1, [],[expr])
+      let tuple_destruct = fun
+        | ETuple(l) => (List.length(var_names) == 1)? [ETuple(l)] : l
+        | e => [e]
+      ;
+      let gen_var_typs = f(env, level + 1, [], tuple_destruct(expr))
       |> List.map(generalize(level));
       let new_env = List.fold_right2(
         (var_name, var_typ, old_env) => Env.extend(old_env, var_name, var_typ),
         var_names, gen_var_typs, env
-        ) 
+        ); 
       f(new_env, level, typs@gen_var_typs, rest);
     }
   | [EApp(fn_expr, param_expr), ...rest] => {
@@ -204,7 +208,7 @@ let infer_exn = (env, level, exprs) => {
     }
   | [ETuple(l), ...rest] => {
       let tuple_typs = f(env, level, [], l);
-      f(env, level, typs@tuple_typs, rest);
+      f(env, level, typs@[TTuple(tuple_typs)], rest);
     }
   | [] => typs
   // | _ => raise(TypeError("inference not implemented"))

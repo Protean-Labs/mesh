@@ -26,6 +26,7 @@ let test_cases = [
   ("[1,2];",                  EList([int_lit(1), int_lit(2)])),
   ("[\"hello\",\"world\"];",  EList([string_lit("hello"), string_lit("world")])),
   ("[1, 2, ...l];",           cons(int_lit(1), cons(int_lit(2), EVar("l")))),
+  ("[1, 2, ...[3, 4]];",      cons(int_lit(1), cons(int_lit(2), EList([int_lit(3), int_lit(4)])))),
 
   // Tuples
   ("();",                     unit_lit()),

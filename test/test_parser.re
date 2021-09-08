@@ -3,6 +3,9 @@ open Rresult;
 
 open Mesh.Syntax;
 
+// Helpers
+let cons = (e, l) => EApp(EApp(EVar("cons"), e), l);
+
 // True positive test cases
 let test_cases = [
   // Literals
@@ -18,9 +21,13 @@ let test_cases = [
   ("true;",                   bool_lit(true)),
   ("false;",                  bool_lit(false)),
 
+  // Lists
   ("[];",                     EList([])),
   ("[1,2];",                  EList([int_lit(1), int_lit(2)])),
   ("[\"hello\",\"world\"];",  EList([string_lit("hello"), string_lit("world")])),
+  ("[1, 2, ...l];",           cons(int_lit(1), cons(int_lit(2), EVar("l")))),
+
+  // Tuples
   ("();",                     unit_lit()),
   ("(1, \"hello\");",         ETuple([int_lit(1), string_lit("hello")])),
   ("(1, (\"hello\", 0));",    ETuple([int_lit(1), ETuple([string_lit("hello"), int_lit(0)])])),
@@ -86,7 +93,7 @@ let test_cases = [
   // Let bindings with patterns
   ("let (a, b) = (0, \"hello\");",                 ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), string_lit("hello")]))),
   ("let (a, b) = (0, (\"hello\", 1.0));",          ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])]))),
-  ("let (a, (b, c)) = (0, (\"hello\", 1.0));",     ELet(PTuple([PVar("a"), PTuple([PVar("b"), PVar("c")])]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])])))
+  ("let (a, (b, c)) = (0, (\"hello\", 1.0));",     ELet(PTuple([PVar("a"), PTuple([PVar("b"), PVar("c")])]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])]))),
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

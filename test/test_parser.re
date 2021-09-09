@@ -67,12 +67,21 @@ let test_cases = [
   ("() => 10;",                       EFun(PLit(Unit), int_lit(10))),
   ("() => f();",                      EFun(PLit(Unit), EApp(EVar("f"), unit_lit()))),
   ("(a, b) => f(a + b);",             EFun(PVar("a"), EFun(PVar("b"), EApp(EVar("f"), EApp(EApp(EVar("+"), EVar("a")), EVar("b")))))),
+  ("(a, b) => {
+    foo(a);
+    foo(b);
+  };",                                EFun(PVar("a"), EFun(PVar("b"), ESeq(EApp(EVar("foo"), EVar("a")), EApp(EVar("foo"), EVar("b")))))),
 
   // Function binding
   ("let f = (a, b) => a;",            ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
   ("let f = (a) => (b) => a;",        ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
   ("let f = a => a;",                 ELet(PVar("f"), EFun(PVar("a"), EVar("a")))),
   ("let f = () => 10;",               ELet(PVar("f"), EFun(PLit(Unit), int_lit(10)))),
+  ("let f = () => {
+      foo(a);
+      true
+    };",                              ELet(PVar("f"), EFun(PLit(Unit), ESeq(EApp(EVar("foo"), EVar("a")), bool_lit(true))))),
+
 
   // Function application
   ("f(a, b);",                        EApp(EApp(EVar("f"), EVar("a")), EVar("b"))),

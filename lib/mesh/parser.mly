@@ -19,6 +19,7 @@
 %token SEMICOLON
 %token LBRACK RBRACK
 %token LPAREN RPAREN
+%token LBRACE RBRACE
 %token COMMA
 
 %token UNDERSCORE
@@ -54,17 +55,28 @@ expr:
   | e1 = expr op = OPERATOR e2 = expr                               { EApp (EApp (EVar op, e1), e2) }
 
 fun_def:
-  | LPAREN UNDERSCORE RPAREN ARROW e = expr                         
-  | UNDERSCORE ARROW e = expr                                       { EFun (PAny, e) }
-  | UNIT ARROW e = expr                                             { EFun (PLit Unit, e) }
-  | varname = VAR ARROW e = expr                                    { EFun (PVar varname, e) }
-  | args = tuple ARROW e = expr                                     { fold_fun e (fmt_fun_pattern args) }
+  | LPAREN UNDERSCORE RPAREN ARROW e = fun_body                         
+  | UNDERSCORE ARROW e = fun_body                                   { EFun (PAny, e) }
+  | UNIT ARROW e = fun_body                                         { EFun (PLit Unit, e) }
+  | varname = VAR ARROW e = fun_body                                { EFun (PVar varname, e) }
+  | args = tuple ARROW e = fun_body                                 { fold_fun e (fmt_fun_pattern args) }
+
+fun_body:
+  | e = expr                                                        { e }
+  | LBRACE e = seq_expr RBRACE                                      { e }
 
 fun_app:
-  | e = expr UNIT                                                  { EApp (e, unit_lit ()) }
-  | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN      { fold_app (e) args }
+  | e = expr UNIT                                                   { EApp (e, unit_lit ()) }
+  | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN       { fold_app (e) args }
 
-tuple: LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN      { ETuple t }
+tuple: LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN       { ETuple t }
+
+seq_expr:
+  | e = seq_expr_no_seq                                             { e }
+  | e = expr SEMICOLON rest = seq_expr                              { ESeq (e, rest) }
+
+seq_expr_no_seq:
+  | e = expr SEMICOLON?                                             { e }
 
 literal:
   | v = BOOL     { Bool v }

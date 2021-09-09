@@ -26,6 +26,7 @@ rule token = parse
 | '_'               { UNDERSCORE }
 | '='               { EQUALS }
 | "=>"              { ARROW }
+| "..."             { DOTDOTDOT }
 
 | ';'               { SEMICOLON }
 | '['               { LBRACK }

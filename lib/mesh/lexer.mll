@@ -33,6 +33,8 @@ rule token = parse
 | ']'               { RBRACK }
 | '('               { LPAREN }
 | ')'               { RPAREN }
+| '{'               { LBRACE }
+| '}'               { RBRACE }
 | ','               { COMMA }
 
 | "let"             { LET }

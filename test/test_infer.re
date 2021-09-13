@@ -56,6 +56,7 @@ let pp_typ_signatures = (typs) =>
 
 let make_single_test = ((mesh_expr, expected)) =>
   (mesh_expr |> string_of_expr(0)) >:: (_) => {
+    reset_id();
     assert_equal(~printer=pp_typ_signatures, expected, infer(Env.empty, 0, [mesh_expr]));
   }
 

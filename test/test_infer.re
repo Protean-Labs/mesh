@@ -16,7 +16,7 @@ let test_cases = [
   (ELet(PVar("x"),int_lit(1)), TConst("int")),
   ( // let x = (1,"hello");
     ELet(PVar("x"), ETuple([int_lit(1), string_lit("hello")])),
-    TConst("int")
+    TTuple([TConst("int"),TConst("string")])
   ),
   (// let a = [1,2];
     ELet(PVar("a"), EList([int_lit(1), int_lit(2)])),
@@ -34,10 +34,10 @@ let test_cases = [
   ),
   (// let f = _ => [];
     ELet(PVar("f"), EFun(PAny, EList([]))),
-    TFun(TVar({contents: Quantified(0)}), TVar({contents: Quantified(1)}))
+    TFun(TVar({contents: Quantified(0)}), TList(TVar({contents: Quantified(1)})))
   ),
   (// let f = () => ();
-    ELet(PVar("f"), EFun(PAny, unit_lit())),
+    ELet(PVar("f"), EFun(PLit(unitv()), unit_lit())),
     TFun(TConst("unit"), TConst("unit"))
   )
 

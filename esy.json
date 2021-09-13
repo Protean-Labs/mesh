@@ -7,11 +7,13 @@
   },
   "scripts": {
     "doc": "esy dune build @doc-private",
-    "graphgen": "esy x mesh-engine",
+    "mesh-engine": "esy x mesh-engine",
+    "install-kernel": "sh jupyter-kernel/install.sh",
     "test": "esy x dune runtest"
   },
   "dependencies": {
     "@opam/easy_logging": "0.8.2",
+    "@opam/jupyter-kernel": "0.7",
     "@opam/menhir": "20210419",
     "@opam/ppx_string": "v0.14.1",
     "@opam/reason": "3.7.0",

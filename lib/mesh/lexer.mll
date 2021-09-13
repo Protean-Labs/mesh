@@ -26,12 +26,15 @@ rule token = parse
 | '_'               { UNDERSCORE }
 | '='               { EQUALS }
 | "=>"              { ARROW }
+| "..."             { DOTDOTDOT }
 
 | ';'               { SEMICOLON }
 | '['               { LBRACK }
 | ']'               { RBRACK }
 | '('               { LPAREN }
 | ')'               { RPAREN }
+| '{'               { LBRACE }
+| '}'               { RBRACE }
 | ','               { COMMA }
 
 | "let"             { LET }

@@ -39,6 +39,10 @@ let test_cases = [
   (// let f = () => ();
     ELet(PVar("f"), EFun(PLit(unitv()), unit_lit())),
     TFun(TConst("unit"), TConst("unit"))
+  ),
+  (// let f = () => {let a = 1; let b = a; b };
+    ELet(PVar("f"), EFun(PLit(unitv()), ESeq(ELet(PVar("a"), int_lit(1)), ESeq(ELet(PVar("b"), EVar("a")), EVar("b"))))),
+    TFun(TConst("unit"), TConst("int"))
   )
 
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok([expected])));

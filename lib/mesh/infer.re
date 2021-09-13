@@ -210,6 +210,22 @@ let infer_exn = (env, level, exprs) => {
       let tuple_typs = f(env, level, [], l);
       f(env, level, typs@[TTuple(tuple_typs)], rest);
     }
+  | [ESeq(expr1, expr2), ...rest] => {
+      let new_env = expr1 |> fun
+        | ELet(pat, _) as e2  => {
+            let names = pat |> var_names_of_pattern;
+            let typs = f(env, level, [], [e2]);
+            List.fold_right2(
+              (var_name, var_typ, old_env) => Env.extend(old_env, var_name, var_typ),
+              names, typs, env
+            ); 
+          }
+        | _ => env
+      ;
+
+      let typs2 = f(new_env, level, [], [expr2])
+      f(env, level, typs@typs2, rest)
+    }
   | [] => typs
   // | _ => raise(TypeError("inference not implemented"))
   ;

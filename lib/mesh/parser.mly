@@ -91,7 +91,7 @@ fun_app:
   | e = expr UNIT                                                   { EApp (e, unit_lit ()) }
   | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN       { fold_app e args }
 
-tuple: LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN       { ETuple t }
+tuple: LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN       { fmt_tuple t }
 
 e_list:
   | LBRACK l = lseparated_list(COMMA, expr) DOTDOTDOT e = expr RBRACK  { fold_cons l e }

@@ -14,7 +14,7 @@ let rec pattern_of_expr = fun
 
 let fmt_fun_pattern = fun
   | ETuple(l)   => List.map(pattern_of_expr, l)
-  | _           => raise(InvalidPattern("function argument pattern is not a tuple"))
+  | e           => [pattern_of_expr(e)]
 ;
 
 /** [fold_fun(body, args)] returns a new expression [e = EFun(...)] containing
@@ -46,8 +46,19 @@ let fold_fun = (body, args) =>
 let fold_app = (e, args) =>
   List.fold_left((acc, arg) => EApp(acc, arg), e, args);
 
-/** [fold_cons(ele, e)] 
+/** [fold_cons(ele, e)] returns a nested {expr} containing nested calls to the 
+    [cons] Mesh function (one call for each of the {expr} in [ele]) with the 
+    inner most call having the {expr} [e] as second argument.
 
-  EApp(EVar("cons"), )*/
+    TODO: Add example */
 let fold_cons = (ele, e) =>
   List.fold_right((ele, acc) => EApp(EApp(EVar("cons"), ele), acc), ele, e);
+
+/** [fmt_tuple(elements)] returns an [ETuple] expression containing the list 
+    of {expr} [elements] if there are at least two expressions, otherwise the
+    single expression of [elements] is returned. */
+let fmt_tuple = (ele) => 
+  switch (ele) {
+  | [expr] => expr
+  | _ => ETuple(ele)
+  };

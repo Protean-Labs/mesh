@@ -41,6 +41,15 @@ let rec string_of_value = fun
   | VClosure(_)   => "closure"
 ;
 
+/** [bind_pat_value(pat, v)] returns a list of tuples of type [(name, value)] containing 
+    the bindings to be added to the environment where each variable in the {pattern} [pat] 
+    is binded to a value in the {value} [v] when possible. When [v]'s structure does not 
+    match the pattern [pat], a {Runtime_error} exception is raised.
+    
+    E.g.: Given the mesh expression [let (a, b) = (0, 1);], the LHS of the expression 
+    is the {pattern} [pat = PTuple([PVar("a"), PVar("b")])] and the RHS of the expression is
+    the {value} [v = VTuple([VInt(0), VInt(1)])]. Calling [bind_pat_value(pat, v)] would return
+    [[("a", VInt(0)), ("b", VInt(1))]]. */
 let rec bind_pat_value = (pat, v) =>
   switch (pat, v) {
   | (PAny, _)                       => []
@@ -88,7 +97,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
   switch (e) {
   | [ELet(_) as e, ...rest] => eval_let(env, e)     |> (env') => eval_exn(ret, env', rest)
   | [e, ...rest]            => eval_non_let(env, e) |> (value) => eval_exn([value, ...ret], env, rest)
-  | []                      => ret
+  | []                      => List.rev(ret)
   };
 };
 

@@ -22,7 +22,14 @@ let test_cases = [
   // Variable overshadowing
   ("let x = true;
     let x = 10;
-    x;",                                    VInt(10))
+    x;",                                    VInt(10)),
+
+  // Destructuring
+  ("let (a, b) = (0, 1); a;",               VInt(0)),
+  
+  // Argument pattern
+  ("let first = ((a, b)) => a;
+    first((0, 1));",                        VInt(0))
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_value = (values) => 

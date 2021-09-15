@@ -82,6 +82,7 @@ let test_cases = [
 
   // Function binding
   ("let f = (a, b) => a;",            ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
+  ("let f = ((a, b)) => a;",          ELet(PVar("f"), EFun(PTuple([PVar("a"), PVar("b")]), EVar("a")))),
   ("let f = (a) => (b) => a;",        ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
   ("let f = a => a;",                 ELet(PVar("f"), EFun(PVar("a"), EVar("a")))),
   ("let f = () => 10;",               ELet(PVar("f"), EFun(PLit(Unit), int_lit(10)))),

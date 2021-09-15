@@ -123,4 +123,4 @@ let make_single_test = ((mesh_src, expected)) =>
   String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_ast, expected, Mesh.parse_file(mesh_src));
 
 let suite = 
-  "test_parsing" >::: List.map(make_single_test, test_cases);
+  "test_parser" >::: List.map(make_single_test, test_cases);

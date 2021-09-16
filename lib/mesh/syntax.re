@@ -87,7 +87,6 @@ let rec string_of_expr = (level, e) =>
 type id = int;
 type level = int;
 
-
 type typ =
   | TConst(name)
   | TFun(typ, typ)

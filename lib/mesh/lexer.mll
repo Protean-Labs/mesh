@@ -38,6 +38,7 @@ rule token = parse
 | ','               { COMMA }
 
 | "let"             { LET }
+| "external"        { EXTERNAL }
 
 | operator as op    { OPERATOR (op) }
 

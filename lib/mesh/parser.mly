@@ -15,6 +15,7 @@
 %token <string> OPERATOR
 
 %token LET
+%token EXTERNAL
 
 %token SEMICOLON
 %token LBRACK RBRACK
@@ -66,15 +67,16 @@ file:
   | e = expr SEMICOLON rest = file                      { e :: rest }
 
 expr:
-  | e = fun_def                                            { e }
-  | e = fun_app                                            { e }
-  | LET p = simple_pattern EQUALS e = expr                 { ELet (p, e) }
-  | varname = VAR                                          { EVar varname }
-  | lit = literal                                          { ELit lit }
-  | e = e_list                                             { e }
-  | e = tuple                                              { e }
-  | op = OPERATOR e = expr                                 { EApp (EVar op, e) }
-  | e1 = expr op = OPERATOR e2 = expr                      { EApp (EApp (EVar op, e1), e2) }
+  | e = fun_def                                           { e }
+  | e = fun_app                                           { e }
+  | LET p = simple_pattern EQUALS e = expr                { ELet (p, e) }
+  | EXTERNAL p = simple_pattern EQUALS v = STRING         {  }
+  | varname = VAR                                         { EVar varname }
+  | lit = literal                                         { ELit lit }
+  | e = e_list                                            { e }
+  | e = tuple                                             { e }
+  | op = OPERATOR e = expr                                { EApp (EVar op, e) }
+  | e1 = expr op = OPERATOR e2 = expr                     { EApp (EApp (EVar op, e1), e2) }
 
 fun_def:
   | LPAREN UNDERSCORE RPAREN ARROW e = fun_body                         

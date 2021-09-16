@@ -61,6 +61,17 @@ let rec bind_pat_value = (pat, v) =>
   | (_, _)                          => raise(Runtime_error(""))
   };
 
+/** [eval_exn(ret, env, e)] 
+
+  [eval_exn] is made up of two subfunctions: [eval_non_let] and [eval_let].
+  [ELet] {expr} values update the environment and evaluate to [unit]. All the 
+  other {expr} values evaluate to some value and do not change the environment.
+  Although it would be possible to have only one recursive function, breaking it 
+  into two makes it more manageable in terms of return values (i.e.: [eval_non_let]
+  returns a value whereas [eval_let] returns an updated environment).
+
+  TODO: Refactor into single elegant function.
+*/
 let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
   let rec eval_non_let = (env, e) => 
     switch (e) {

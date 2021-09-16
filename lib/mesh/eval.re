@@ -102,7 +102,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
     | ELet(pat, e) => 
       eval_non_let(env, e)              |> (value) =>
       bind_pat_value(pat, value) @ env
-    | _            => raise(Runtime_error("Unexpected expr in eval_let"))     
+    | _            => raise(Runtime_error("Unexpected expr in eval_let"))
     };
 
   switch (e) {

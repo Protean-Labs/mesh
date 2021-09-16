@@ -24,6 +24,12 @@ let test_cases = [
     let x = 10;
     x;",                                    [VInt(10)]),
 
+  ("let f = (x) => {
+      let x = 0;
+      x
+    };
+    f(\"hello\");",                         [VInt(0)]),
+
   // Destructuring
   ("let (a, b) = (0, 1); a;",               [VInt(0)]),
   

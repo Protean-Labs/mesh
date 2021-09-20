@@ -139,25 +139,41 @@ let type_const_of_literal = fun
   | Bool(_) => TConst("bool")
   | Unit => TConst("unit")
 ; 
-let expr_list_of_pattern = (p) => {
-  let rec f = (p, acc) => switch (p) {
-  | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
-  | PLit(lit) => [ELit(lit), ...acc]
-  | PVar(name) => [EVar(name), ...acc]
-  | _ => acc
-  };
-  f(p, []);
+// let expr_list_of_pattern = (p) => {
+//   let rec f = (p, acc) => switch (p) {
+//   | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
+//   | PLit(lit) => [ELit(lit), ...acc]
+//   | PVar(name) => [EVar(name), ...acc]
+//   | _ => acc
+//   };
+//   f(p, []);
+// };
+
+// let var_names_of_pattern = (pattern) => {
+//   (pattern) 
+//   |> expr_list_of_pattern 
+//   |> List.filter((fun | EVar(_) => true | _ => false ))
+//   |> List.map((fun | EVar(name) => name | _ => ""))
+// };
+
+let rec bind_pat_expr = (pat, expr) => switch (pat, expr) {
+  | (PAny, _) => [("", unit_lit())]
+  | (PVar(name), e) => [(name, e)]
+  | (PLit(lit), _) => [("", ELit(lit))]
+  | (PTuple(lpat), ETuple(le)) => 
+    List.fold_left2((acc, pat, e) => acc @ bind_pat_expr(pat, e), [], lpat, le)
+  | _ => raise(TypeError("Cannot destructure pattern"))
 };
 
-let var_names_of_pattern = (pattern) => {
-  (pattern) 
-  |> expr_list_of_pattern 
-  |> List.filter((fun | EVar(_) => true | _ => false ))
-  |> List.map((fun | EVar(name) => name | _ => ""))
-};
 
 let infer_exn = (env, level, exprs) => {
-  let get_typ = (x => List.nth(x,0));
+  let get_typ = List.hd;
+  let update_env = (env, names_typs) => List.fold_right(
+        ((var_name, var_typ), old_env) => var_name == ""? 
+          old_env:
+          Env.extend(old_env, var_name, var_typ),
+        names_typs, env
+        ); 
   let rec f = (env, level, typs) => fun
   | [ELit(lit), ...rest] => typs@[type_const_of_literal(lit)] |> f(env, level, _, rest)
   | [EVar(name), ...rest] => {
@@ -167,29 +183,33 @@ let infer_exn = (env, level, exprs) => {
       f(env, level, typs@[typ], rest)
     }
   | [EFun(param_pat, body_expr), ...rest] => {
-      let (param_name,param_typ) = param_pat |> fun 
-        | PVar(name) => (name, new_var(level)) 
-        | PLit(l)    => ("", type_const_of_literal(l))
-        | PAny       => ("", new_var(level))
-        | PTuple(_)  => raise(TypeError("Tuple pattern as arg"))
+      let rec bind_pat_param = (p) => switch (p) {
+        | PAny => [("", new_var(level))]
+        | PVar(name) => [(name, new_var(level))]
+        | PLit(lit) => [("", type_const_of_literal(lit))]
+        | PTuple(lpat) => 
+          List.fold_left((acc, pat) => acc @ bind_pat_param(pat), [], lpat);
+      };
+      let names_typs = bind_pat_param(param_pat);
+      let param_typ = names_typs |> fun
+        | [] => TConst("unit")
+        | [(_, typ)] => typ
+        | l => {
+          let (_, typs) = List.split(l);
+          TTuple(typs)
+        }
       ;
-      let fn_env = Env.extend(env, param_name, param_typ);
+      let fn_env = update_env(env, names_typs);
       let return_typ = f(fn_env, level,[] ,[body_expr]) |> get_typ;
       f(env, level, typs@[TFun(param_typ, return_typ)], rest);
     }
   | [ELet(pattern, expr), ...rest] => {
-      let var_names = pattern |> var_names_of_pattern;
-      let tuple_destruct = fun
-        | ETuple(l) => (List.length(var_names) == 1)? [ETuple(l)] : l
-        | e => [e]
-      ;
-      let gen_var_typs = f(env, level + 1, [], tuple_destruct(expr))
-      |> List.map(generalize(level));
-      let new_env = List.fold_right2(
-        (var_name, var_typ, old_env) => Env.extend(old_env, var_name, var_typ),
-        var_names, gen_var_typs, env
-        ); 
-      f(new_env, level, typs@gen_var_typs, rest);
+      let names_exprs = bind_pat_expr(pattern, expr);
+      let names_typs = 
+        List.map(((name, e)) => (name, f(env, level + 1, [], [e]) |> get_typ |> generalize(level)), names_exprs);
+      let new_env = update_env(env, names_typs);
+      let (_, typs2) = List.split(names_typs);
+      f(new_env, level, typs@typs2, rest);
     }
   | [EApp(fn_expr, param_expr), ...rest] => {
       let (param_typ, return_typ) = 
@@ -211,20 +231,8 @@ let infer_exn = (env, level, exprs) => {
       f(env, level, typs@[TTuple(tuple_typs)], rest);
     }
   | [ESeq(expr1, expr2), ...rest] => {
-      let new_env = expr1 |> fun
-        | ELet(pat, _) as e2  => {
-            let names = pat |> var_names_of_pattern;
-            let typs = f(env, level, [], [e2]);
-            List.fold_right2(
-              (var_name, var_typ, old_env) => Env.extend(old_env, var_name, var_typ),
-              names, typs, env
-            ); 
-          }
-        | _ => env
-      ;
-
-      let typs2 = f(new_env, level, [], [expr2])
-      f(env, level, typs@typs2, rest)
+      let typ = f(env, level, [], [expr1, expr2]) |> List.rev |> List.hd;
+      f(env, level, typs@[typ], rest);
     }
   | [] => typs
   // | _ => raise(TypeError("inference not implemented"))

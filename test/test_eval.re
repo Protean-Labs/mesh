@@ -36,7 +36,28 @@ let test_cases = [
   // Argument pattern
   ("let first = ((a, b)) => a;
     first((0, 1));
-    first((\"hello\", 10));",               [VInt(0), VString("hello")])
+    first((\"hello\", 10));",               [VInt(0), VString("hello")]),
+
+  // External functions
+  ("external f = \"list_cons\";
+    f(1, [2, 3]);",                         [VList([VInt(1), VInt(2), VInt(3)])]),
+  ("external f = \"int_add\";
+    f(1, 2);",                              [VInt(3)]),
+  ("external f = \"int_sub\";
+    f(1, 2);",                              [VInt(-1)]),
+  ("external f = \"int_mul\";
+    f(1, 2);",                              [VInt(2)]),
+  ("external f = \"int_div\";
+    f(4, 2);",                              [VInt(2)]),
+  ("external f = \"float_add\";
+    f(1., 2.);",                            [VFloat(3.)]),
+  ("external f = \"float_sub\";
+    f(1., 2.);",                            [VFloat(-1.)]),
+  ("external f = \"float_mul\";
+    f(1., 2.);",                            [VFloat(2.)]),
+  ("external f = \"float_div\";
+    f(4., 2.);",                            [VFloat(2.)]),
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 

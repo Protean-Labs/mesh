@@ -9,7 +9,7 @@ let digit = ['0'-'9']
 let alpha = ['a'-'z' 'A'-'Z']
 
 let int     = '-'? digit+
-let float   = '-'? digit+ '.' digit+
+let float   = '-'? digit+ '.' digit*
 let string  = (alpha|digit|'_')*
 let var     = (alpha) (alpha|digit|'_')* 
 

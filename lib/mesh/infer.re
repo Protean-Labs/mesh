@@ -222,7 +222,10 @@ let infer_exn = (env, level, exprs) => {
       | []                => [TList(new_var(level))]
       | [lone]            => [TList(lone)]
       | [first, ...rest]  => {
-        List.for_all((x => x == first), rest)?[TList(first)]: raise(TypeError("List types dont match"))
+        try(List.iter(unify(first), rest)) {
+          | TypeError(msg) => raise(TypeError("list" ++ msg))
+        };
+        [TList(first)]
       };
       f(env, level, typs@list_typ, rest);
     }

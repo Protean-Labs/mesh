@@ -72,7 +72,7 @@ expr:
   | varname = VAR                                          { EVar varname }
   | lit = literal                                          { ELit lit }
   | e = e_list                                             { e }
-  | e = tuple                                              { e }
+  | t = tuple                                              { fmt_tuple t }
   | op = OPERATOR e = expr                                 { EApp (EVar op, e) }
   | e1 = expr op = OPERATOR e2 = expr                      { EApp (EApp (EVar op, e1), e2) }
 
@@ -81,7 +81,7 @@ fun_def:
   | UNDERSCORE ARROW e = fun_body                                   { EFun (PAny, e) }
   | UNIT ARROW e = fun_body                                         { EFun (PLit Unit, e) }
   | varname = VAR ARROW e = fun_body                                { EFun (PVar varname, e) }
-  | args = tuple ARROW e = fun_body                                 { fold_fun e (fmt_fun_pattern args) }
+  | args = tuple ARROW e = fun_body                                 { fold_fun e (fmt_fun_pattern (ETuple args)) }
 
 fun_body:
   | e = expr                                                        { e }
@@ -91,7 +91,15 @@ fun_app:
   | e = expr UNIT                                                   { EApp (e, unit_lit ()) }
   | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN       { fold_app e args }
 
-tuple: LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN       { fmt_tuple t }
+/** Note: Due to the fact that we are reusing the `tuple` rule for both tuple expressions (i.e.: ETuple)
+    as well as for function argument tuple patterns (i.e.: PTuple) we cannot immediately return the ETuple. 
+    This is because the rules for formatting tuples vary depending on the use case. For example, 
+    in `let t = ((a, b));`, the double parantheses should be ignored (`t` is a simple 2-tuple) whereas
+    in `let f = ((a, b)) => a;`, the double parantheses are actually important as they indicate that the 
+    argument is a tuple (instead of two seperate arguments). Therefore, the `tuple` grammar rule only returns 
+    the list of expressions `t`, which is transformed according to the parent rule. */
+tuple: 
+  | LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN          { t }
 
 e_list:
   | LBRACK l = lseparated_list(COMMA, expr) DOTDOTDOT e = expr RBRACK  { fold_cons l e }

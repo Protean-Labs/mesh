@@ -1,5 +1,6 @@
 %{
   open Syntax
+  open Primitives
   open Parser_util
 %}
 
@@ -70,7 +71,7 @@ expr:
   | e = fun_def                                           { e }
   | e = fun_app                                           { e }
   | LET p = simple_pattern EQUALS e = expr                { ELet (p, e) }
-  | EXTERNAL p = simple_pattern EQUALS v = STRING         {  }
+  | EXTERNAL p = simple_pattern EQUALS v = STRING         { ELet (p, primitive_of_name v) }
   | varname = VAR                                         { EVar varname }
   | lit = literal                                         { ELit lit }
   | e = e_list                                            { e }

@@ -25,6 +25,19 @@ module Env = {
   let lookup = (env, name) => StringMap.find(name, env);
 };
 
+// TODO: Thierry: Add type signatures
+let typ_of_primitive = fun
+  | PListCons(_, _)   => raise(TypeError("PListCons: hardcoded typ not implemented"))
+  | PIntAdd(_, _)     => raise(TypeError("PIntAdd: hardcoded typ not implemented"))
+  | PIntSub(_, _)     => raise(TypeError("PIntSub: hardcoded typ not implemented"))
+  | PIntMul(_, _)     => raise(TypeError("PIntMul: hardcoded typ not implemented"))
+  | PIntDiv(_, _)     => raise(TypeError("PIntDiv: hardcoded typ not implemented"))
+  | PFloatAdd(_, _)   => raise(TypeError("PFloatAdd: hardcoded typ not implemented"))
+  | PFloatSub(_, _)   => raise(TypeError("PFloatSub: hardcoded typ not implemented"))
+  | PFloatMul(_, _)   => raise(TypeError("PFloatMul: hardcoded typ not implemented"))
+  | PFloatDiv(_, _)   => raise(TypeError("PFloatDiv: hardcoded typ not implemented"))
+;
+
 // (other_id == tvar_id)? raise(TypeError("recursive types")):(other_level > tvar_level)? other_tvar := Free(other_id, tvar_level): ();
 let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
   let rec f = fun
@@ -226,6 +239,9 @@ let infer_exn = (env, level, exprs) => {
       let typs2 = f(new_env, level, [], [expr2])
       f(env, level, typs@typs2, rest)
     }
+  | [EPrim(prim), ...rest] => 
+    // TODO: Thierry can you implement this? Not too sure how to do it
+    f(env, level, typ_of_primitive(prim) @ typs, rest)    
   | [] => typs
   // | _ => raise(TypeError("inference not implemented"))
   ;

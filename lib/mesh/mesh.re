@@ -1,5 +1,6 @@
 module Syntax = Syntax;
 module Infer = Infer;
+module Eval = Eval;
 
 open Rresult;
 

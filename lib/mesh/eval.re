@@ -46,14 +46,16 @@ let rec string_of_value = fun
 ;
 
 let value_of_var = (env, path, name) =>
+  // Attempt to find module namespace based on [path]
   List.fold_left((acc, modname) => 
     switch (List.assoc_opt(modname, acc)) {
-    | Some(VMod(env))  => env
-    | Some(_)             => raise(Runtime_error([%string "%{modname} is not a module!"]))
-    | None                => raise(Runtime_error([%string "Unbound module %{modname}"]))
+    | Some(VMod(env)) => env
+    | Some(_)         => raise(Runtime_error([%string "%{modname} is not a module!"]))
+    | None            => raise(Runtime_error([%string "Unbound module %{modname}"]))
     }
-  , env, path)  |> (env') =>
-  switch (List.assoc_opt(name, env')) {
+  , env, path)  |> (mod_ns) =>
+  // Attempt to find [name] in module namespace
+  switch (List.assoc_opt(name, mod_ns)) {
   | Some(v) => v
   | None    => raise(Runtime_error([%string "Unbound value %{string_of_expr 0 (EVar(path, name))}"]))
   }; 

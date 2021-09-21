@@ -1,6 +1,7 @@
 open Syntax
 
 exception InvalidPattern(string);
+exception ParsingError(string);
 
 /** [pattern_of_expr(e)] returns a pattern [p] that matches the expression. 
     Used to convert "tuples" to function argument patterns. Raises 
@@ -63,4 +64,11 @@ let fmt_tuple = (ele) =>
   switch (ele) {
   | [expr] => expr
   | _ => ETuple(ele)
+  };
+
+
+let fmt_value_path = (var, modname) =>
+  switch (var) {
+  | EVar(path, name) => EVar([modname, ...path], name)
+  | _                => raise(ParsingError("fmt_value_path: value is not EVar"))
   };

@@ -4,8 +4,14 @@ module Eval = Eval;
 
 open Rresult;
 
+let token = (lexbuf) => 
+  Lexer.token(lexbuf)                               |> (token) =>
+  print_endline(Mesh_lexer.string_of_token(token))  |> () => 
+  token;
+
 let parse_file = (source) => 
-  try (Result.ok @@ Parser.file(Lexer.token, Lexing.from_string(source))) {
+  try (Result.ok @@ Parser.file(Mesh_lexer.token, Lexing.from_string(source))) {
+  // try (Result.ok @@ Parser.file(token, Lexing.from_string(source))) {
   | Lexer.SyntaxError(err) => R.error_msg(err)
   | exn => R.error_msg(Printexc.to_string(exn) ++ ": " ++ Printexc.get_backtrace())
   };

@@ -11,8 +11,8 @@ let alpha = ['a'-'z' 'A'-'Z']
 let int     = '-'? digit+
 let float   = '-'? digit+ '.' digit+
 let string  = (alpha|digit|'_')*
-let var     = ['a'-'z'] (alpha|digit|'_')* 
-let mod     = ['A'-'Z'] alpha*
+let var     = ['a'-'z'] string 
+let mod     = ['A'-'Z'] string
 
 let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@')+
 
@@ -30,6 +30,7 @@ rule token = parse
 | "..."             { DOTDOTDOT }
 
 | ';'               { SEMICOLON }
+| ':'               { COLON }
 | '['               { LBRACK }
 | ']'               { RBRACK }
 | '('               { LPAREN }
@@ -41,6 +42,7 @@ rule token = parse
 
 | "let"             { LET }
 | "module"          { MODULE }
+| "esfun"           { ES6_FUN }
 
 | operator as op    { OPERATOR (op) }
 

@@ -4,26 +4,51 @@ open Rresult;
 exception TypeError(string);
 
 
-let current_id = ref(0);
-let next_id = () => {
-  let id = current_id^;
-  incr(current_id);
-  id;
-};
+// let current_id = ref(0);
+// let next_id = () => {
+//   let id = current_id^;
+//   incr(current_id);
+//   id;
+// };
 
-let reset_id = () => current_id := 0;
+// let reset_id = () => current_id := 0;
 
-let new_var = (lvl) => TVar(ref(Free(next_id(), lvl)));
-let new_quantified_var = () => TVar(ref(Quantified(next_id())));
+
+// module Env = {
+//   module StringMap = Map.Make(String);
+//   type env = StringMap.t(typ);
+
+//   let empty: env = StringMap.empty;
+//   let extend = (env, name, typ) => StringMap.add(name, typ, env);
+//   let lookup = (env, name) => StringMap.find(name, env);
+// };
 
 module Env = {
   module StringMap = Map.Make(String);
-  type env = StringMap.t(typ);
+  type t = {
+    tvars: StringMap.t(typ),
+    mutable current_id: int
+  };
 
-  let empty: env = StringMap.empty;
-  let extend = (env, name, typ) => StringMap.add(name, typ, env);
-  let lookup = (env, name) => StringMap.find(name, env);
+  let empty = {
+    tvars: StringMap.empty,
+    current_id: 0
+  };
+  let extend = (env, name, typ) => {...env, tvars:StringMap.add(name, typ, env.tvars)};
+  let lookup = (env, name) => StringMap.find(name, env.tvars);
+
+  let next_id = (env) => {
+    let id = env.current_id;
+    env.current_id = env.current_id + 1;
+    id;
+  }
+
+  let reset_id = (env) => env.current_id = 0;
+
 };
+
+let new_var = (env, lvl) => TVar(ref(Free(Env.next_id(env), lvl)));
+let new_quantified_var = (env) => TVar(ref(Quantified(Env.next_id(env))));
 
 // (other_id == tvar_id)? raise(TypeError("recursive types")):(other_level > tvar_level)? other_tvar := Free(other_id, tvar_level): ();
 let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
@@ -93,7 +118,7 @@ let rec generalize = (level) => fun
   // | _ => raise(TypeError("generalize not implemented"))
 ;
 
-let instantiate = (level, typ) => {
+let instantiate = (env, level, typ) => {
   let id_var_map = Hashtbl.create(10);
   let rec f = (typ) => {
     switch(typ) {
@@ -102,7 +127,7 @@ let instantiate = (level, typ) => {
       | TVar({contents: Quantified(id)}) => {
         try (Hashtbl.find(id_var_map, id)){
           | Not_found => {
-            let var = new_var(level);
+            let var = new_var(env, level);
             Hashtbl.add(id_var_map, id, var);
             var;
             };
@@ -119,17 +144,18 @@ let instantiate = (level, typ) => {
   f(typ);
 };
 
-let rec match_fun_typ = fun
+let rec match_fun_typ = (env, fun_typ) => switch (fun_typ) {
   | TFun(param_typ, return_typ)              => (param_typ, return_typ)
-  | TVar({contents: Constrained(typ)})       => match_fun_typ(typ)
+  | TVar({contents: Constrained(typ)})       => match_fun_typ(env, typ)
   | TVar({contents: Free(_, level)} as tvar) => {
-    let param_typ = new_var(level);
-    let return_typ = new_var(level);
+    let param_typ = new_var(env, level);
+    let return_typ = new_var(env, level);
     tvar := Constrained(TFun(param_typ, return_typ));
     (param_typ, return_typ);
   }
   | _ => raise(TypeError("Expected a function"))
-;
+};
+
 
 
 let type_const_of_literal = fun 
@@ -177,15 +203,15 @@ let infer_exn = (env, level, exprs) => {
   let rec f = (env, level, typs) => fun
   | [ELit(lit), ...rest] => typs@[type_const_of_literal(lit)] |> f(env, level, _, rest)
   | [EVar(name), ...rest] => {
-      let typ = try (instantiate(level, Env.lookup(env, name))) {
+      let typ = try (instantiate(env, level, Env.lookup(env, name))) {
         | Not_found => raise(TypeError([%string "variable %{name}"]))
       }
       f(env, level, typs@[typ], rest)
     }
   | [EFun(param_pat, body_expr), ...rest] => {
       let rec bind_pat_param = (p) => switch (p) {
-        | PAny => [("", new_var(level))]
-        | PVar(name) => [(name, new_var(level))]
+        | PAny => [("", new_var(env, level))]
+        | PVar(name) => [(name, new_var(env, level))]
         | PLit(lit) => [("", type_const_of_literal(lit))]
         | PTuple(lpat) => 
           List.fold_left((acc, pat) => acc @ bind_pat_param(pat), [], lpat);
@@ -213,13 +239,13 @@ let infer_exn = (env, level, exprs) => {
     }
   | [EApp(fn_expr, param_expr), ...rest] => {
       let (param_typ, return_typ) = 
-        match_fun_typ(f(env, level, [], [fn_expr]) |> get_typ);
+        match_fun_typ(env, f(env, level, [], [fn_expr]) |> get_typ);
       unify(param_typ, f(env, level, [], [param_expr]) |> get_typ);
       f(env, level, typs@[return_typ], rest);
     }
   | [EList(l), ...rest] => {
       let list_typ = f(env, level, [], l) |> fun
-      | []                => [TList(new_var(level))]
+      | []                => [TList(new_var(env, level))]
       | [lone]            => [TList(lone)]
       | [first, ...rest]  => {
         try(List.iter(unify(first), rest)) {

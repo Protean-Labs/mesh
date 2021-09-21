@@ -25,7 +25,7 @@ let test_cases = [
 
   // Function bindings
   (// let f = x => x;
-    ELet(PVar("f"), EFun(PVar("x"),EVar("x"))),
+    ELet(PVar("f"), EFun(PVar("x"), var("x"))),
     TFun(TVar({contents: Quantified(0)}), TVar({contents: Quantified(0)}))
   ),
   (// let f = _ => 1;
@@ -41,7 +41,7 @@ let test_cases = [
     TFun(TConst("unit"), TConst("unit"))
   ),
   (// let f = () => {let a = 1; let b = a; b };
-    ELet(PVar("f"), EFun(PLit(unitv()), ESeq(ELet(PVar("a"), int_lit(1)), ESeq(ELet(PVar("b"), EVar("a")), EVar("b"))))),
+    ELet(PVar("f"), EFun(PLit(unitv()), ESeq(ELet(PVar("a"), int_lit(1)), ESeq(ELet(PVar("b"), var("a")), var("b"))))),
     TFun(TConst("unit"), TConst("int"))
   )
 

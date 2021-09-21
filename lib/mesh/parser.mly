@@ -11,16 +11,19 @@
 %token <string> STRING
 
 %token <string> VAR
+%token <string> MOD
 
 %token <string> OPERATOR
 
 %token LET
+%token MODULE
 
 %token SEMICOLON
 %token LBRACK RBRACK
 %token LPAREN RPAREN
 %token LBRACE RBRACE
 %token COMMA
+%token DOT
 
 %token UNDERSCORE
 %token EQUALS
@@ -62,19 +65,22 @@
 // Expressions
 // ================================================================
 file:
-  | EOF                                                 { [] }
-  | e = expr SEMICOLON rest = file                      { e :: rest }
+  | EOF                                                     { [] }
+  | e = expr SEMICOLON rest = file                          { e :: rest }
+  | MODULE modname = MOD EQUALS 
+    LBRACE body = file RBRACE rest = file                   { EMod (modname, body) :: rest }
 
 expr:
-  | e = fun_def                                            { e }
-  | e = fun_app                                            { e }
-  | LET p = simple_pattern EQUALS e = expr                 { ELet (p, e) }
-  | varname = VAR                                          { EVar varname }
-  | lit = literal                                          { ELit lit }
-  | e = e_list                                             { e }
-  | t = tuple                                              { fmt_tuple t }
-  | op = OPERATOR e = expr                                 { EApp (EVar op, e) }
-  | e1 = expr op = OPERATOR e2 = expr                      { EApp (EApp (EVar op, e1), e2) }
+  | e = value_path                                          { e }
+  | e = fun_def                                             { e }
+  | e = fun_app                                             { e }
+  | LET p = simple_pattern EQUALS e = expr                  { ELet (p, e) }
+  // | varname = VAR                                           { EVar ([], varname) }
+  | lit = literal                                           { ELit lit }
+  | e = e_list                                              { e }
+  | t = tuple                                               { fmt_tuple t }
+  | op = OPERATOR e = expr                                  { EApp (EVar ([], op), e) }
+  | e1 = expr op = OPERATOR e2 = expr                       { EApp (EApp (EVar ([], op), e1), e2) }
 
 fun_def:
   | LPAREN UNDERSCORE RPAREN ARROW e = fun_body                         
@@ -119,6 +125,10 @@ literal:
   | v = STRING   { String v }
   | UNIT         { Unit }
 
+value_path:
+  | path = list(module_path) varname = VAR                          { EVar (path, varname) } 
+%inline module_path:
+  | modname = MOD DOT                                               { modname }
 // ================================================================
 // Patterns
 // ================================================================

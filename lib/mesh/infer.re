@@ -131,21 +131,22 @@ let rec match_fun_typ = fun
   | _ => raise(TypeError("Expected a function"))
 ;
 
-
 let type_const_of_literal = fun 
   | Int(_) => TConst("int")
   | Float(_) => TConst("float")
   | String(_) => TConst("string")
   | Bool(_) => TConst("bool")
   | Unit => TConst("unit")
-; 
+;
+
 let expr_list_of_pattern = (p) => {
-  let rec f = (p, acc) => switch (p) {
-  | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
-  | PLit(lit) => [ELit(lit), ...acc]
-  | PVar(name) => [EVar(name), ...acc]
-  | _ => acc
-  };
+  let rec f = (p, acc) => 
+    switch (p) {
+    | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
+    | PLit(lit) => [ELit(lit), ...acc]
+    | PVar(name) => [EVar([], name), ...acc]
+    | _ => acc
+    };
   f(p, []);
 };
 
@@ -153,19 +154,21 @@ let var_names_of_pattern = (pattern) => {
   (pattern) 
   |> expr_list_of_pattern 
   |> List.filter((fun | EVar(_) => true | _ => false ))
-  |> List.map((fun | EVar(name) => name | _ => ""))
+  |> List.map((fun | EVar([], name) => name | _ => ""))
 };
 
 let infer_exn = (env, level, exprs) => {
   let get_typ = (x => List.nth(x,0));
   let rec f = (env, level, typs) => fun
   | [ELit(lit), ...rest] => typs@[type_const_of_literal(lit)] |> f(env, level, _, rest)
-  | [EVar(name), ...rest] => {
+  | [EVar([], name), ...rest] => {
       let typ = try (instantiate(level, Env.lookup(env, name))) {
         | Not_found => raise(TypeError([%string "variable %{name}"]))
       }
       f(env, level, typs@[typ], rest)
     }
+  // TODO: EVar with path
+  | [EVar(_, _), ..._] => raise(TypeError("Infer: EVar with path not implemented"))
   | [EFun(param_pat, body_expr), ...rest] => {
       let (param_name,param_typ) = param_pat |> fun 
         | PVar(name) => (name, new_var(level)) 
@@ -226,6 +229,8 @@ let infer_exn = (env, level, exprs) => {
       let typs2 = f(new_env, level, [], [expr2])
       f(env, level, typs@typs2, rest)
     }
+  // TODO: EMod
+  | [EMod(_, _), ..._] => raise(TypeError("Infer: EMod not implemented"))
   | [] => typs
   // | _ => raise(TypeError("inference not implemented"))
   ;

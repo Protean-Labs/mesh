@@ -43,13 +43,14 @@ let rec string_of_pattern = fun
 
 type expr = 
   | ELit(literal)
-  | EVar(name)
+  | EVar(list(name), name)
   | EList(list(expr))
   | ETuple(list(expr))
   | EApp(expr, expr)
   | EFun(pattern, expr)
   | ELet(pattern, expr)
   | ESeq(expr, expr)
+  | EMod(name, list(expr))
 ;
 
 let int_lit    = (v) => ELit(Int(v));
@@ -57,6 +58,8 @@ let float_lit  = (v) => ELit(Float(v));
 let string_lit = (v) => ELit(String(v));
 let bool_lit   = (v) => ELit(Bool(v));
 let unit_lit   = () => ELit(Unit);
+
+let var = (~path=[], varname) => EVar(path, varname);
 
 let rec string_repeat = (s,n) => n == 0 ? "" : s ++ string_repeat(s, n-1);
 
@@ -66,7 +69,10 @@ let rec string_of_expr = (level, e) =>
   dspace_repeat(level)  |> (indent) =>
   switch (e) {
   | ELit(lit)           => [%string "%{indent}(ELit %{string_of_literal lit})"]
-  | EVar(name)          => [%string "%{indent}(EVar %{name})"]
+  | EVar([], name)      => [%string "%{indent}(EVar %{name})"]
+  | EVar(path, name)    => 
+    String.concat(".", path)  |> (path) =>
+    [%string "%{indent}(EVar %{path}.%{name})"]
   | EList([])           => [%string "%{indent}(EList [])"]
   | EList(l)            => 
     List.map((ele) => string_of_expr(level + 1, ele), l) |> String.concat("\n") |> (elements) =>
@@ -79,6 +85,9 @@ let rec string_of_expr = (level, e) =>
   | EFun(pat, e)        => [%string "%{indent}(EFun %{string_of_pattern pat} =>\n%{string_of_expr (level + 1) e})"]
   | ELet(pat, e)        => [%string "%{indent}(ELet %{string_of_pattern pat} =\n%{string_of_expr (level + 1) e})"]
   | ESeq(e, rest)       => [%string "%{indent}(ESeq \n%{string_of_expr (level + 1) e}\n%{string_of_expr (level + 1) rest})"]
+  | EMod(name, body)    => 
+    List.map((ele) => string_of_expr(level + 1, ele), body) |> String.concat("\n") |> (elements) =>    
+    [%string "%{indent}(EMod %{name}\n%{elements})"]
   };
 
 // ================================================================

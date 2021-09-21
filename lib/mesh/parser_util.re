@@ -7,7 +7,7 @@ exception InvalidPattern(string);
     [InvalidPattern] if the epxression does not have a pattern equivalent. */
 let rec pattern_of_expr = fun
   | ELit(lit)      => PLit(lit)
-  | EVar(name)     => PVar(name)
+  | EVar(_, name)  => PVar(name)
   | ETuple(exprs)  => PTuple(List.map(pattern_of_expr, exprs))
   | e              => raise(InvalidPattern(string_of_expr(0, e)))
 ;
@@ -50,9 +50,11 @@ let fold_app = (e, args) =>
     [cons] Mesh function (one call for each of the {expr} in [ele]) with the 
     inner most call having the {expr} [e] as second argument.
 
-    TODO: Add example */
+    TODO: Add example
+    TODO: Change `EVar([], "cons")` to `EVar(["List"], "cons")` once stdlib 
+    and `List` module are implemented. */
 let fold_cons = (ele, e) =>
-  List.fold_right((ele, acc) => EApp(EApp(EVar("cons"), ele), acc), ele, e);
+  List.fold_right((ele, acc) => EApp(EApp(EVar([], "cons"), ele), acc), ele, e);
 
 /** [fmt_tuple(elements)] returns an [ETuple] expression containing the list 
     of {expr} [elements] if there are at least two expressions, otherwise the

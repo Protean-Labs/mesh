@@ -1,7 +1,10 @@
 (library
  (name mesh)
- (libraries easy_logging rresult)
+ (libraries easy_logging rresult menhirLib)
  (preprocess (pps ppx_string)))
 
-(menhir (modules parser) (infer false))
+(menhir 
+ (flags --unused-tokens --table --cmly)
+ (modules parser)
+ (infer false))
 (ocamllex (modules lexer))

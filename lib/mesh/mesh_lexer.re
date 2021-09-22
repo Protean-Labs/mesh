@@ -1,7 +1,7 @@
 open Parser;
 
-/** Module containing intermediate functions used between lexing and parsing
-    Based on Reason's `reason_lexer.ml` */ 
+/** Module containing intermediate functions used between lexing and parsing.
+    Adapted from Reason's `reason_lexer.ml` (https://github.com/reasonml/reason) */ 
 
 type positioned('a) = ('a, Lexing.position, Lexing.position);
 
@@ -255,33 +255,4 @@ let string_of_token = fun
   | ARROW => "ARROW"
   | DOTDOTDOT => "DOTDOTDOT"
   | EOF => "EOF"
-  // | _ => "UNKNOWN"
 ;
-
-let token = (lexbuf) => 
-  token(init(lexbuf)) |> ((tok, _, _)) => 
-  print_endline(string_of_token(tok)) |> () => 
-  tok;
-
-// type comment = (string, Location.t);
-// type invalid_docstrings = list(comment);
-
-// let empty_invalid_docstrings = [];
-
-// let add_invalid_docstring = (text, loc_start, loc_end, invalid_docstrings) => {
-//   let loc = {Location.loc_start, loc_end, loc_ghost: false};
-//   [(text, loc), ...invalid_docstrings];
-// };
-
-// let get_comments = (state, invalid_docstrings) => {
-//   let cnum = ((_, loc)) => loc.Location.loc_start.Lexing.pos_cnum;
-//   let rec merge_comments = acc =>
-//     fun
-//     | ([], xs)
-//     | (xs, []) => List.rev_append(xs, acc)
-//     | ([x, ..._] as xs, [y, ...ys]) when cnum(x) >= cnum(y) =>
-//       merge_comments([y, ...acc], (xs, ys))
-//     | ([x, ...xs], ys) => merge_comments([x, ...acc], (xs, ys));
-
-//   merge_comments([], (state.comments, invalid_docstrings));
-// };

@@ -38,7 +38,7 @@ let rec string_of_pattern = fun
   | PLit(lit)     => [%string "PLit %{string_of_literal lit}"]
   | PTuple(pats)  => 
     List.map(string_of_pattern, pats) |> String.concat(", ") |> (inner) =>
-    [%string "(%{inner})"]
+    [%string "(PTuple %{inner})"]
 ;
 
 type expr = 

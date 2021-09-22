@@ -4,17 +4,24 @@ module Eval = Eval;
 
 open Rresult;
 
-let token = (lexbuf) => 
-  Lexer.token(lexbuf)                               |> (token) =>
-  print_endline(Mesh_lexer.string_of_token(token))  |> () => 
-  token;
+let parse_file = (source) => {
+  let lexer = Mesh_lexer.init(Lexing.from_string(source));
+  let parser = Parser.Incremental.file(Mesh_lexer.lexbuf(lexer).Lexing.lex_curr_p);
 
-let parse_file = (source) => 
-  try (Result.ok @@ Parser.file(Mesh_lexer.token, Lexing.from_string(source))) {
-  // try (Result.ok @@ Parser.file(token, Lexing.from_string(source))) {
+  // NOTE: Alternative lexer token supplier that prints each token that is being parsed.
+  // Useful for debugging
+  // let verbose_supplier = () => 
+  //   Mesh_lexer.token(lexer)                         |> ((tok, _, _) as token) =>
+  //   print_endline(Mesh_lexer.string_of_token(tok))  |> () => 
+  //   token;
+
+  let supplier = () => Mesh_lexer.token(lexer);
+
+  try(R.ok @@ Parser.MenhirInterpreter.loop(supplier, parser)) {
   | Lexer.SyntaxError(err) => R.error_msg(err)
   | exn => R.error_msg(Printexc.to_string(exn) ++ ": " ++ Printexc.get_backtrace())
-  };
+  }
+};
 
 let string_of_ast = (source) =>
   parse_file(source)

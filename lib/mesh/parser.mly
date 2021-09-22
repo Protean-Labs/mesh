@@ -74,7 +74,7 @@ file:
 
 expr:
   | LET p = simple_pattern EQUALS e = expr                  { ELet (p, e) }
-  // | e = fun_def                                             { e }
+  | e = fun_def                                             { e }
   | e = fun_app                                             { e }
   | e = value_path                                          { e }
   | lit = literal                                           { ELit lit }
@@ -87,15 +87,13 @@ expr:
   | ES6_FUN p = simple_pattern ARROW e = fun_body           { EFun (p, e) }
   // | varname = VAR                                           { EVar ([], varname) }
 
-// fun_def:
-//   | LPAREN UNDERSCORE RPAREN ARROW e = fun_body                         
-//   | UNDERSCORE ARROW e = fun_body                                   { EFun (PAny, e) }
-//   | UNIT ARROW e = fun_body                                         { EFun (PLit Unit, e) }
-//   | varname = VAR ARROW e = fun_body                                { EFun (PVar varname, e) }
-//   | args = tuple ARROW e = fun_body                                 { fold_fun e (fmt_fun_pattern (ETuple args)) }
-
 fun_def:
-  | ES6_FUN p = simple_pattern ARROW e = fun_body           { EFun (p, e) }
+  | UNIT ARROW e = fun_body                                           { EFun (PLit Unit, e) }
+  | ES6_FUN LPAREN p = separated_nonempty_list(COMMA, simple_pattern) 
+    RPAREN ARROW e = fun_body                                         { fold_fun e p }
+
+// fun_def:
+//   | ES6_FUN p = simple_pattern ARROW e = fun_body           { EFun (p, e) }
 
 fun_body:
   | e = expr                                                        { e }

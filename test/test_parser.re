@@ -69,26 +69,26 @@ let test_cases = [
   ("++a / ++b;",                      EApp(EApp(var("/"), EApp(var("++"), var("a"))), EApp(var("++"), var("b")))),
 
   // Anonymous functions
-  // ("(a, b) => a;",                    EFun(PVar("a"), EFun(PVar("b"), var("a")))),
-  // ("(a) => (b) => a;",                EFun(PVar("a"), EFun(PVar("b"), var("a")))),
-  // ("() => 10;",                       EFun(PLit(Unit), int_lit(10))),
-  // ("() => f();",                      EFun(PLit(Unit), EApp(var("f"), unit_lit()))),
-  // ("(a, b) => f(a + b);",             EFun(PVar("a"), EFun(PVar("b"), EApp(var("f"), EApp(EApp(var("+"), var("a")), var("b")))))),
-  // ("(a, b) => {
-  //   foo(a);
-  //   foo(b);
-  // };",                                EFun(PVar("a"), EFun(PVar("b"), ESeq(EApp(var("foo"), var("a")), EApp(var("foo"), var("b")))))),
+  ("(a, b) => a;",                    EFun(PVar("a"), EFun(PVar("b"), var("a")))),
+  ("(a) => (b) => a;",                EFun(PVar("a"), EFun(PVar("b"), var("a")))),
+  ("() => 10;",                       EFun(PLit(Unit), int_lit(10))),
+  ("() => f();",                      EFun(PLit(Unit), EApp(var("f"), unit_lit()))),
+  ("(a, b) => f(a + b);",             EFun(PVar("a"), EFun(PVar("b"), EApp(var("f"), EApp(EApp(var("+"), var("a")), var("b")))))),
+  ("(a, b) => {
+    foo(a);
+    foo(b);
+  };",                                EFun(PVar("a"), EFun(PVar("b"), ESeq(EApp(var("foo"), var("a")), EApp(var("foo"), var("b")))))),
 
   // Function binding
-  // ("let f = (a, b) => a;",            ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), var("a"))))),
-  // ("let f = ((a, b)) => a;",          ELet(PVar("f"), EFun(PTuple([PVar("a"), PVar("b")]), var("a")))),
-  // ("let f = (a) => (b) => a;",        ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), var("a"))))),
-  // ("let f = a => a;",                 ELet(PVar("f"), EFun(PVar("a"), var("a")))),
-  // ("let f = () => 10;",               ELet(PVar("f"), EFun(PLit(Unit), int_lit(10)))),
-  // ("let f = () => {
-  //     foo(a);
-  //     true
-  //   };",                              ELet(PVar("f"), EFun(PLit(Unit), ESeq(EApp(var("foo"), var("a")), bool_lit(true))))),
+  ("let f = (a, b) => a;",            ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), var("a"))))),
+  ("let f = ((a, b)) => a;",          ELet(PVar("f"), EFun(PTuple([PVar("a"), PVar("b")]), var("a")))),
+  ("let f = (a) => (b) => a;",        ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), var("a"))))),
+  ("let f = a => a;",                 ELet(PVar("f"), EFun(PVar("a"), var("a")))),
+  ("let f = () => 10;",               ELet(PVar("f"), EFun(PLit(Unit), int_lit(10)))),
+  ("let f = () => {
+      foo(a);
+      true
+    };",                              ELet(PVar("f"), EFun(PLit(Unit), ESeq(EApp(var("foo"), var("a")), bool_lit(true))))),
 
   // Function application
   ("f(a, b);",                        EApp(EApp(var("f"), var("a")), var("b"))),
@@ -105,7 +105,7 @@ let test_cases = [
   ("let (a, (b, c)) = (0, (\"hello\", 1.0));",      ELet(PTuple([PVar("a"), PTuple([PVar("b"), PVar("c")])]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])]))),
 
   // Expressions wrapped in parantheses
-  // ("(a => a);",                                     EFun(PVar("a"), var("a"))),
+  ("(a => a);",                                     EFun(PVar("a"), var("a"))),
   ("((a, b));",                                     ETuple([var("a"), var("b")])),
   ("(1);",                                          int_lit(1)),
 

@@ -36,7 +36,21 @@ let test_cases = [
   // Argument pattern
   ("let first = ((a, b)) => a;
     first((0, 1));
-    first((\"hello\", 10));",               [VInt(0), VString("hello")])
+    first((\"hello\", 10));",               [VInt(0), VString("hello")]),
+
+
+  // Modules
+  ("module M = {
+      let x = 2;
+    };
+    M.x;",                                  [VInt(2)]),
+  ("module M = {
+      let x = 2;
+      let y = 5;
+      let f = (a, b) => b;
+    };
+    M.f(M.x, \"hello\");",                  [VString("hello")]),
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 

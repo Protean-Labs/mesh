@@ -110,6 +110,10 @@ let test_cases = [
   ("(a => a);",                                     EFun(PVar("a"), EVar("a"))),
   ("((a, b));",                                     ETuple([EVar("a"), EVar("b")])),
   ("(1);",                                          int_lit(1)),
+
+  // External functions
+  ("external f = \"int_add\";",                     ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(EVar("a"), EVar("b"))))))),
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

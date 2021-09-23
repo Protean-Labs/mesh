@@ -20,6 +20,7 @@ module Env = {
 
   let next_id = (env) => {
     let id = env.current_id;
+    print_endline([%string "id update %{string_of_int(id)}"]);
     env.current_id = env.current_id + 1;
     id;
   }
@@ -199,8 +200,8 @@ let rec infer_exn = (env, level, exprs, typs) => {
         }
       ;
       let fn_env = update_env(env, names_typs);
-      let (return_typ,_) = f(fn_env, level, body_expr);
-      (TFun(param_typ, return_typ), inherit_id(fn_env, env));
+      let (return_typ,new_env) = f(fn_env, level, body_expr);
+      (TFun(param_typ, return_typ), inherit_id(new_env, env));
     }
   | ELet(pattern, expr) => {
       let (gen_typ, new_env) = f(env, level + 1, expr) 
@@ -210,23 +211,24 @@ let rec infer_exn = (env, level, exprs, typs) => {
       (gen_typ, new_env2);
     }
   | EApp(fn_expr, param_expr) => {
-      let (param_typ, return_typ) = 
-        match_fun_typ(env, f(env, level, fn_expr) |> ((typ, _)) => typ);
-      unify(param_typ, f(env, level, param_expr)|> ((typ, _)) => typ);
-      (return_typ, env);
+      let (fn_typ, new_env) = f(env, level, fn_expr);
+      let (param_typ, return_typ) = match_fun_typ(inherit_id(new_env,env), fn_typ);
+      let (param_typ1, new_env1) = f(inherit_id(new_env,env), level, param_expr);
+      unify(param_typ, param_typ1);
+      (return_typ, inherit_id(new_env1,env));
     }
   | EList(l) => {
-      let list_typ = infer_exn(env, level, l, []) 
+      let (list_typ, new_env1) = infer_exn(env, level, l, []) 
       |> ((typs, new_env)) => switch (typs) {
-        | [] => TList(new_var(inherit_id(new_env, env), level))
-        | [lone] => TList(lone)
+        | [] => (TList(new_var(new_env, level)), new_env)
+        | [lone] => (TList(lone), new_env)
         | [first, ...rest] => 
           try (List.iter(unify(first), rest)) {
             | TypeError(msg) => raise(TypeError("List" ++ msg))
           };
-          TList(first);
+          (TList(first), new_env);
       };
-      (list_typ, env);
+      (list_typ, inherit_id(new_env1, env));
     }
   | ETuple(l) => {
       let (tuple_typs, new_env) = infer_exn(env, level, l, []);

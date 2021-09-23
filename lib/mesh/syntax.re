@@ -130,7 +130,7 @@ let string_of_typ = (typ) => {
         | Not_found => {
           let name = next_name();
           Hashtbl.add(id_name_map, id, name);
-          name; 
+          [%string "%{name}%{string_of_int(id)}"]; 
         }
       }
     }

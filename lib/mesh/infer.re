@@ -20,7 +20,7 @@ module Env = {
 
   let next_id = (env) => {
     let id = env.current_id;
-    print_endline([%string "id update %{string_of_int(id)}"]);
+    // print_endline([%string "id update %{string_of_int(id)}"]);
     env.current_id = env.current_id + 1;
     id;
   }
@@ -208,7 +208,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
       |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
       let names_typs = bind_pat_typ(pattern, gen_typ);
       let new_env2 = update_env(inherit_id(new_env, env), names_typs);
-      (gen_typ, new_env2);
+      (TConst("unit"), new_env2);
     }
   | EApp(fn_expr, param_expr) => {
       let (fn_typ, new_env) = f(env, level, fn_expr);

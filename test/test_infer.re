@@ -13,36 +13,36 @@ let test_cases = [
 
   // bindings
   // let x = 1;
-  ("let x = 1;", [TConst("int")]),
+  ("let x = 1; x;", [TConst("unit"),TConst("int")]),
   ( 
-    "let x = (1,\"hello\");",
-    [TTuple([TConst("int"),TConst("string")])]
+    "let x = (1,\"hello\"); x;",
+    [TConst("unit"), TTuple([TConst("int"),TConst("string")])]
   ),
   (// let a = [1,2];
-    "let a = [1,2];",
-    [TList(TConst("int"))]
+    "let a = [1,2]; a;",
+    [TConst("unit"), TList(TConst("int"))]
   ),
 
   // Function bindings
   (
-    "let f = x => x;",
-    [TFun(TVar({contents: Quantified(0)}), TVar({contents: Quantified(0)}))]
+    "let f = x => x; let x = f(1); x;",
+    [TConst("unit"), TConst("unit"), TConst("int")]
   ),
   (
-    "let f = _ => 1;",
-    [TFun(TVar({contents: Quantified(0)}), TConst("int"))]
+    "let f = _ => 1; let x = f(\"hello\"); x;",
+    [TConst("unit"), TConst("unit"), TConst("int")]
   ),
   (
-    "let f = _ => [];",
-    [TFun(TVar({contents: Quantified(0)}), TList(TVar({contents: Quantified(1)})))]
+    "let f = a => [a]; let x = f(\"hello\"); x;",
+    [TConst("unit"), TConst("unit"), TList(TConst("string"))]
   ),
   (
-    "let f = () => ();",
-    [TFun(TConst("unit"), TConst("unit"))]
+    "let f = () => (); let x = f(); x;",
+    [TConst("unit"), TConst("unit"), TConst("unit")]
   ),
   (
-    "let f = () => {let a = 1; let b = a; b };",
-    [TFun(TConst("unit"), TConst("int"))]
+    "let f = () => {let a = 1; let b = a; b }; let x = f(); x;",
+    [TConst("unit"), TConst("unit"), TConst("int")]
   ),
 
   // Destructuring
@@ -61,14 +61,8 @@ let test_cases = [
 
   // Closures
   (// need to fix diagnose variable inversion after application
-    "let f = (a, (b, c)) => {let a = (); let b = 2; (a, b, c);}; f(1);",
-    [
-      TFun(TVar({contents: Quantified(0)}), 
-        TFun(TTuple([TVar({contents: Quantified(1)}),TVar({contents: Quantified(2)})]), 
-          TTuple([TConst("unit"), TConst("int"), TVar({contents: Quantified(2)})]))),
-      TFun(TTuple([TVar({contents: Free(4,0)}),TVar({contents: Free(3,0)})]),
-        TTuple([TConst("unit"), TConst("int"),TVar({contents: Free(3,0)})]))
-    ]
+    "let f = (a, (b, c)) => {let a = (); let b = 2; (a, b, c);}; let x = f(1, ((), \"hello\")); x;",
+    [TConst("unit"), TConst("unit"), TTuple([TConst("unit"), TConst("int"), TConst("string")])]
   )
 
 

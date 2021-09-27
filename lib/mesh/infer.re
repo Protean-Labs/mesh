@@ -4,25 +4,33 @@ open Rresult;
 exception TypeError(string);
 
 
-let current_id = ref(0);
-let next_id = () => {
-  let id = current_id^;
-  incr(current_id);
-  id;
-};
-
-let reset_id = () => current_id := 0;
-
-let new_var = (lvl) => TVar(ref(Free(next_id(), lvl)));
-let new_quantified_var = () => TVar(ref(Quantified(next_id())));
-
 module Env = {
   module StringMap = Map.Make(String);
-  type env = StringMap.t(typ);
+  type t = {
+    tvars: StringMap.t(typ),
+    mutable current_id: int
+  };
 
-  let empty: env = StringMap.empty;
-  let extend = (env, name, typ) => StringMap.add(name, typ, env);
-  let lookup = (env, name) => StringMap.find(name, env);
+  let empty = {
+    tvars: StringMap.empty,
+    current_id: 0
+  };
+  let extend = (env, name, typ) => {...env, tvars:StringMap.add(name, typ, env.tvars)};
+  let lookup = (env, name) => StringMap.find(name, env.tvars);
+
+  let next_id = (env) => {
+    let id = env.current_id;
+    // print_endline([%string "id update %{string_of_int(id)}"]);
+    env.current_id = env.current_id + 1;
+    id;
+  }
+
+  let get_string_id = (env) => string_of_int(env.current_id);
+
+  let get_bindings = (env) => StringMap.bindings(env.tvars);
+
+  let reset_id = (env) => env.current_id = 0;
+
 };
 
 // TODO: Thierry: Add type signatures
@@ -37,6 +45,10 @@ let typ_of_primitive = fun
   | PFloatMul(_, _)   => raise(TypeError("PFloatMul: hardcoded typ not implemented"))
   | PFloatDiv(_, _)   => raise(TypeError("PFloatDiv: hardcoded typ not implemented"))
 ;
+
+let new_var = (env, lvl) => TVar(ref(Free(Env.next_id(env), lvl)));
+
+let new_quantified_var = (env) => TVar(ref(Quantified(Env.next_id(env))));
 
 // (other_id == tvar_id)? raise(TypeError("recursive types")):(other_level > tvar_level)? other_tvar := Free(other_id, tvar_level): ();
 let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
@@ -106,7 +118,7 @@ let rec generalize = (level) => fun
   // | _ => raise(TypeError("generalize not implemented"))
 ;
 
-let instantiate = (level, typ) => {
+let instantiate = (env, level, typ) => {
   let id_var_map = Hashtbl.create(10);
   let rec f = (typ) => {
     switch(typ) {
@@ -115,7 +127,7 @@ let instantiate = (level, typ) => {
       | TVar({contents: Quantified(id)}) => {
         try (Hashtbl.find(id_var_map, id)){
           | Not_found => {
-            let var = new_var(level);
+            let var = new_var(env, level);
             Hashtbl.add(id_var_map, id, var);
             var;
             };
@@ -129,20 +141,21 @@ let instantiate = (level, typ) => {
      // | _ => raise(TypeError("instantiate not implemented"))
     };
   };
-  f(typ);
+  (f(typ), env);
 };
 
-let rec match_fun_typ = fun
+let rec match_fun_typ = (env, fun_typ) => switch (fun_typ) {
   | TFun(param_typ, return_typ)              => (param_typ, return_typ)
-  | TVar({contents: Constrained(typ)})       => match_fun_typ(typ)
+  | TVar({contents: Constrained(typ)})       => match_fun_typ(env, typ)
   | TVar({contents: Free(_, level)} as tvar) => {
-    let param_typ = new_var(level);
-    let return_typ = new_var(level);
+    let param_typ = new_var(env, level);
+    let return_typ = new_var(env, level);
     tvar := Constrained(TFun(param_typ, return_typ));
     (param_typ, return_typ);
   }
   | _ => raise(TypeError("Expected a function"))
-;
+};
+
 
 
 let type_const_of_literal = fun 
@@ -152,103 +165,107 @@ let type_const_of_literal = fun
   | Bool(_) => TConst("bool")
   | Unit => TConst("unit")
 ; 
-let expr_list_of_pattern = (p) => {
-  let rec f = (p, acc) => switch (p) {
-  | PTuple(l) => (List.map(f(_,[]), l) |> List.concat)@acc
-  | PLit(lit) => [ELit(lit), ...acc]
-  | PVar(name) => [EVar(name), ...acc]
-  | _ => acc
-  };
-  f(p, []);
+
+
+let rec bind_pat_typ = (pat, typ) => switch (pat, typ) {
+  | (PAny, _) => []
+  | (PVar(name), e) => [(name, e)]
+  | (PLit(_), _) => []
+  | (PTuple(lpat), TTuple(lt)) => 
+    List.fold_left2((acc, pat, e) => acc @ bind_pat_typ(pat, e), [], lpat, lt)
+  | _ => raise(TypeError("Cannot destructure pattern"))
 };
 
-let var_names_of_pattern = (pattern) => {
-  (pattern) 
-  |> expr_list_of_pattern 
-  |> List.filter((fun | EVar(_) => true | _ => false ))
-  |> List.map((fun | EVar(name) => name | _ => ""))
-};
 
-let infer_exn = (env, level, exprs) => {
-  let get_typ = (x => List.nth(x,0));
-  let rec f = (env, level, typs) => fun
-  | [ELit(lit), ...rest] => typs@[type_const_of_literal(lit)] |> f(env, level, _, rest)
-  | [EVar(name), ...rest] => {
-      let typ = try (instantiate(level, Env.lookup(env, name))) {
-        | Not_found => raise(TypeError([%string "variable %{name}"]))
-      }
-      f(env, level, typs@[typ], rest)
-    }
-  | [EFun(param_pat, body_expr), ...rest] => {
-      let (param_name,param_typ) = param_pat |> fun 
-        | PVar(name) => (name, new_var(level)) 
-        | PLit(l)    => ("", type_const_of_literal(l))
-        | PAny       => ("", new_var(level))
-        | PTuple(_)  => raise(TypeError("Tuple pattern as arg"))
-      ;
-      let fn_env = Env.extend(env, param_name, param_typ);
-      let return_typ = f(fn_env, level,[] ,[body_expr]) |> get_typ;
-      f(env, level, typs@[TFun(param_typ, return_typ)], rest);
-    }
-  | [ELet(pattern, expr), ...rest] => {
-      let var_names = pattern |> var_names_of_pattern;
-      let tuple_destruct = fun
-        | ETuple(l) => (List.length(var_names) == 1)? [ETuple(l)] : l
-        | e => [e]
-      ;
-      let gen_var_typs = f(env, level + 1, [], tuple_destruct(expr))
-      |> List.map(generalize(level));
-      let new_env = List.fold_right2(
-        (var_name, var_typ, old_env) => Env.extend(old_env, var_name, var_typ),
-        var_names, gen_var_typs, env
+let rec infer_exn = (env, level, exprs, typs) => {
+  
+  let update_env = (env, names_typs) => List.fold_right(
+        ((var_name, var_typ), old_env) => var_name == ""? 
+          old_env:
+          Env.extend(old_env, var_name, var_typ),
+        names_typs, env
         ); 
-      f(new_env, level, typs@gen_var_typs, rest);
-    }
-  | [EApp(fn_expr, param_expr), ...rest] => {
-      let (param_typ, return_typ) = 
-        match_fun_typ(f(env, level, [], [fn_expr]) |> get_typ);
-      unify(param_typ, f(env, level, [], [param_expr]) |> get_typ);
-      f(env, level, typs@[return_typ], rest);
-    }
-  | [EList(l), ...rest] => {
-      let list_typ = f(env, level, [], l) |> fun
-      | []                => [TList(new_var(level))]
-      | [lone]            => [TList(lone)]
-      | [first, ...rest]  => {
-        List.for_all((x => x == first), rest)?[TList(first)]: raise(TypeError("List types dont match"))
-      };
-      f(env, level, typs@list_typ, rest);
-    }
-  | [ETuple(l), ...rest] => {
-      let tuple_typs = f(env, level, [], l);
-      f(env, level, typs@[TTuple(tuple_typs)], rest);
-    }
-  | [ESeq(expr1, expr2), ...rest] => {
-      let new_env = expr1 |> fun
-        | ELet(pat, _) as e2  => {
-            let names = pat |> var_names_of_pattern;
-            let typs = f(env, level, [], [e2]);
-            List.fold_right2(
-              (var_name, var_typ, old_env) => Env.extend(old_env, var_name, var_typ),
-              names, typs, env
-            ); 
-          }
-        | _ => env
-      ;
+  
+  let inherit_id = (env1: Env.t, env2: Env.t) => {...env2, current_id: env1.current_id};
 
-      let typs2 = f(new_env, level, [], [expr2])
-      f(env, level, typs@typs2, rest)
-    }
-  | [EPrim(prim), ...rest] => 
-    // TODO: Thierry can you implement this? Not too sure how to do it
-    f(env, level, typ_of_primitive(prim) @ typs, rest)    
-  | [] => typs
-  // | _ => raise(TypeError("inference not implemented"))
-  ;
-  f(env, level, [], exprs);
+  let rec f = (env, level, expr) => 
+    switch (expr) {
+    | ELit(lit) => (type_const_of_literal(lit), env)
+    | EVar(name) => {
+        let (typ, new_env) = try (instantiate(env, level, Env.lookup(env, name))) {
+          | Not_found => raise(TypeError([%string "variable %{name}"]))
+        };
+        (typ, inherit_id(new_env, env))
+      }
+    | EFun(param_pat, body_expr) => {
+        let rec bind_pat_param = (p) => switch (p) {
+          | PAny => [("", new_var(env, level))]
+          | PVar(name) =>  [(name, new_var(env, level))]
+          | PLit(lit) => [("", type_const_of_literal(lit))]
+          | PTuple(lpat) => 
+            List.fold_left((acc, pat) => acc @ bind_pat_param(pat), [], lpat);
+        };
+        let names_typs = bind_pat_param(param_pat);
+        let param_typ = names_typs |> fun
+          | [] => TConst("unit")
+          | [(_, typ)] => typ
+          | l => {
+            let (_, typs) = List.split(l);
+            TTuple(typs)
+          }
+        ;
+        let fn_env = update_env(env, names_typs);
+        let (return_typ,new_env) = f(fn_env, level, body_expr);
+        (TFun(param_typ, return_typ), inherit_id(new_env, env));
+      }
+    | ELet(pattern, expr) => {
+        let (gen_typ, new_env) = f(env, level + 1, expr) 
+        |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
+        let names_typs = bind_pat_typ(pattern, gen_typ);
+        let new_env2 = update_env(inherit_id(new_env, env), names_typs);
+        (TConst("unit"), new_env2);
+      }
+    | EApp(fn_expr, param_expr) => {
+        let (fn_typ, new_env) = f(env, level, fn_expr);
+        let (param_typ, return_typ) = match_fun_typ(inherit_id(new_env,env), fn_typ);
+        let (param_typ1, new_env1) = f(inherit_id(new_env,env), level, param_expr);
+        unify(param_typ, param_typ1);
+        (return_typ, inherit_id(new_env1,env));
+      }
+    | EList(l) => {
+        let (list_typ, new_env1) = infer_exn(env, level, l, []) 
+        |> ((typs, new_env)) => switch (typs) {
+          | [] => (TList(new_var(new_env, level)), new_env)
+          | [lone] => (TList(lone), new_env)
+          | [first, ...rest] => 
+            try (List.iter(unify(first), rest)) {
+              | TypeError(msg) => raise(TypeError("List" ++ msg))
+            };
+            (TList(first), new_env);
+        };
+        (list_typ, inherit_id(new_env1, env));
+      }
+    | ETuple(l) => {
+        let (tuple_typs, new_env) = infer_exn(env, level, l, []);
+        (TTuple(tuple_typs), inherit_id(new_env, env));
+      }
+    | ESeq(expr1, expr2) => 
+      let (typs, new_env) = infer_exn(env, level, [expr1, expr2], []);
+      (typs |> List.rev |> List.hd, inherit_id(new_env, env));
+    | EPrim(_) =>
+      // TODO: Thierry can you implement this? Not too sure how to do it
+      raise(TypeError("EPrim: Not implemented"))
+    };
+
+  switch (exprs) {
+  | [e, ...rest] => 
+    f(env, level, e) |> ((typ, new_env)) =>
+    infer_exn(new_env, level, rest, typs@[typ])
+  | [] => (typs, env)
+  }
 };
 
 let infer = (env, level, e) =>
-  try (R.ok @@ infer_exn(env, level, e)) {
+  try (R.ok @@ infer_exn(env, level, e, [])) {
   | TypeError(msg) => R.error_msg(msg)
   };

@@ -67,8 +67,12 @@ let test_cases = [
 
   // External
   (
-    "external f = \"list_cons\"; let f1 = f(1); f1;",
-    [TConst("unit"), TConst("unit"), TFun(TList(TConst("int")), TList(TConst("int")))]
+    "external f = \"list_cons\"; let f1 = f(1); let f2 = f(()); f1; f2;",
+    [
+      TConst("unit"), TConst("unit"), TConst("unit"), 
+      TFun(TList(TConst("int")), TList(TConst("int"))),
+      TFun(TList(TConst("unit")), TList(TConst("unit"))) 
+    ]
   ),
   (
     "external f = \"int_add\"; let f1 = f(1); f1;",

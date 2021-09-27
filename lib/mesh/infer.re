@@ -246,10 +246,18 @@ let rec infer_exn = (env, level, exprs, typs) => {
     }
     and typ_of_primitive = (prim, env) => switch (prim) {
       | PListCons(el_expr, list_expr) =>
-        let (list_typ, new_env) = f(env, level, list_expr);
-        let (typ, new_env1) = f(new_env, level, el_expr);
-        unify(list_typ, TList(typ));
-        (list_typ, inherit_id(new_env1, env));
+        let (typs, new_env) = infer_exn(env, level, [el_expr, list_expr], []) |> ((inferred, nenv)) =>
+        switch (inferred) {
+          | [_, _] as l => (l, nenv)
+          | _ => raise(TypeError("cons_list wrong number of arguments"))
+        };
+        let typ = List.hd(typs);
+        List.iter2(
+          unify,
+          typs,
+          [typ, TList(typ)]
+        );
+        (TList(typ), inherit_id(new_env, env));
       | PIntAdd(a_expr, b_expr)       => 
         let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
         List.iter(unify(TConst("int")), typs);

@@ -33,18 +33,6 @@ module Env = {
 
 };
 
-// TODO: Thierry: Add type signatures
-let typ_of_primitive = fun
-  | PListCons(_, _)   => raise(TypeError("PListCons: hardcoded typ not implemented"))
-  | PIntAdd(_, _)     => raise(TypeError("PIntAdd: hardcoded typ not implemented"))
-  | PIntSub(_, _)     => raise(TypeError("PIntSub: hardcoded typ not implemented"))
-  | PIntMul(_, _)     => raise(TypeError("PIntMul: hardcoded typ not implemented"))
-  | PIntDiv(_, _)     => raise(TypeError("PIntDiv: hardcoded typ not implemented"))
-  | PFloatAdd(_, _)   => raise(TypeError("PFloatAdd: hardcoded typ not implemented"))
-  | PFloatSub(_, _)   => raise(TypeError("PFloatSub: hardcoded typ not implemented"))
-  | PFloatMul(_, _)   => raise(TypeError("PFloatMul: hardcoded typ not implemented"))
-  | PFloatDiv(_, _)   => raise(TypeError("PFloatDiv: hardcoded typ not implemented"))
-;
 
 let new_var = (env, lvl) => TVar(ref(Free(Env.next_id(env), lvl)));
 
@@ -64,6 +52,7 @@ let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
     }
     | TApp(fun_typ, param_typ) => {f(fun_typ); f(param_typ)}
     | TFun(param_typ, return_typ) => {f(param_typ); f(return_typ)}
+    | TList(list_typ) => f(list_typ)
     | TConst(_) => ()
     | _ => raise(TypeError("occurs check not implemented"))
   ;
@@ -252,9 +241,47 @@ let rec infer_exn = (env, level, exprs, typs) => {
     | ESeq(expr1, expr2) => 
       let (typs, new_env) = infer_exn(env, level, [expr1, expr2], []);
       (typs |> List.rev |> List.hd, inherit_id(new_env, env));
-    | EPrim(_) =>
-      // TODO: Thierry can you implement this? Not too sure how to do it
-      raise(TypeError("EPrim: Not implemented"))
+    | EPrim(prim) =>
+      typ_of_primitive(prim, env)
+    }
+    and typ_of_primitive = (prim, env) => switch (prim) {
+      | PListCons(el_expr, list_expr) =>
+        let (list_typ, new_env) = f(env, level, list_expr);
+        let (typ, new_env1) = f(new_env, level, el_expr);
+        unify(list_typ, TList(typ));
+        (list_typ, inherit_id(new_env1, env));
+      | PIntAdd(a_expr, b_expr)       => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("int")), typs);
+        (TConst("int"), inherit_id(new_env, env))
+      | PIntSub(a_expr, b_expr)                 =>
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("int")), typs); 
+        (TConst("int"), inherit_id(new_env, env))
+      | PIntMul(a_expr, b_expr)                 => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("int")), typs);
+        (TConst("int"), inherit_id(new_env, env))
+      | PIntDiv(a_expr, b_expr)                 =>
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("int")), typs); 
+        (TConst("int"), inherit_id(new_env, env))
+      | PFloatAdd(a_expr, b_expr)               => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("float")), typs);
+        (TConst("float"), inherit_id(new_env, env))
+      | PFloatSub(a_expr, b_expr)               => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("float")), typs);
+        (TConst("float"), inherit_id(new_env, env))
+      | PFloatMul(a_expr, b_expr)               => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("float")), typs);
+        (TConst("float"), inherit_id(new_env, env))
+      | PFloatDiv(a_expr, b_expr)               => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("float")), typs);
+        (TConst("float"), inherit_id(new_env, env))
     };
 
   switch (exprs) {
@@ -264,6 +291,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
   | [] => (typs, env)
   }
 };
+
 
 let infer = (env, level, e) =>
   try (R.ok @@ infer_exn(env, level, e, [])) {

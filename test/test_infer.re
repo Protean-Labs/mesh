@@ -1,7 +1,6 @@
 open OUnit2;
 open Rresult;
 
-open Mesh.Syntax;
 open Mesh.Infer;
 
 let test_cases = [
@@ -113,6 +112,23 @@ let test_cases = [
   (
     "external f = \"float_div\"; let f1 = f(1.0); f1;",
     [TConst("unit"), TConst("unit"), TFun(TConst("float"), TConst("float"))]
+  ),
+
+  // modules
+  (
+    "module M = {
+      let x = 2;
+    };
+    M.x;",
+    [TConst("unit"), TConst("int")]
+  ),
+  (
+    "module M = {
+      let f = (a, b) => a;
+    };
+    let f2 = M.f(1);
+    f2(\"hello\");",
+    [TConst("unit"), TConst("unit"), TConst("int")]
   )
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 

@@ -1,5 +1,6 @@
 %{
   open Syntax
+  open Primitives
   open Parser_util
 %}
 
@@ -18,6 +19,7 @@
 %token LET
 %token MODULE
 %token ES6_FUN
+%token EXTERNAL
 
 %token SEMICOLON
 %token COLON
@@ -74,6 +76,7 @@ file:
 
 expr:
   | LET p = simple_pattern EQUALS e = expr                  { ELet (p, e) }
+  | EXTERNAL p = simple_pattern EQUALS v = STRING           { ELet (p, primitive_of_name v) }
   | e = fun_def                                             { e }
   | e = fun_app                                             { e }
   | e = value_path                                          { e }
@@ -85,7 +88,6 @@ expr:
   | MODULE modname = MOD EQUALS 
     LBRACE body = structure RBRACE                          { EMod (modname, body) }
   | ES6_FUN p = simple_pattern ARROW e = fun_body           { EFun (p, e) }
-  // | varname = VAR                                           { EVar ([], varname) }
 
 fun_def:
   | UNIT ARROW e = fun_body                                           { EFun (PLit Unit, e) }

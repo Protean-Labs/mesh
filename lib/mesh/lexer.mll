@@ -9,7 +9,7 @@ let digit = ['0'-'9']
 let alpha = ['a'-'z' 'A'-'Z']
 
 let int     = '-'? digit+
-let float   = '-'? digit+ '.' digit+
+let float   = '-'? digit+ '.' digit*
 let string  = (alpha|digit|'_')*
 let var     = ['a'-'z'] string 
 let mod     = ['A'-'Z'] string
@@ -43,6 +43,7 @@ rule token = parse
 | "let"             { LET }
 | "module"          { MODULE }
 | "esfun"           { ES6_FUN }
+| "external"        { EXTERNAL }
 
 | operator as op    { OPERATOR (op) }
 

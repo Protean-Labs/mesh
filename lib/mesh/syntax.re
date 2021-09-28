@@ -51,6 +51,17 @@ type expr =
   | ELet(pattern, expr)
   | ESeq(expr, expr)
   | EMod(name, list(expr))
+  | EPrim(primitive)
+and primitive =
+  | PListCons(expr, expr)
+  | PIntAdd(expr, expr)
+  | PIntSub(expr, expr)
+  | PIntMul(expr, expr)
+  | PIntDiv(expr, expr)
+  | PFloatAdd(expr, expr)
+  | PFloatSub(expr, expr)
+  | PFloatMul(expr, expr)
+  | PFloatDiv(expr, expr)
 ;
 
 let int_lit    = (v) => ELit(Int(v));
@@ -64,6 +75,7 @@ let var = (~path=[], varname) => EVar(path, varname);
 let rec string_repeat = (s,n) => n == 0 ? "" : s ++ string_repeat(s, n-1);
 
 let dspace_repeat = string_repeat("  ");
+
 
 let rec string_of_expr = (level, e) =>
   dspace_repeat(level)  |> (indent) =>
@@ -88,14 +100,27 @@ let rec string_of_expr = (level, e) =>
   | EMod(name, body)    => 
     List.map((ele) => string_of_expr(level + 1, ele), body) |> String.concat("\n") |> (elements) =>    
     [%string "%{indent}(EMod %{name}\n%{elements})"]
+  | EPrim(prim)         => string_of_primitive(level, prim)
+  }
+and string_of_primitive = (level, prim) =>
+  dspace_repeat(level)  |> (indent) =>
+  switch (prim) {
+  | PListCons(e1, e2)   => [%string "%{indent}(list_cons\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
+  | PIntAdd(e1, e2)     => [%string "%{indent}(int_add\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
+  | PIntSub(e1, e2)     => [%string "%{indent}(int_sub\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
+  | PIntMul(e1, e2)     => [%string "%{indent}(int_mul\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
+  | PIntDiv(e1, e2)     => [%string "%{indent}(int_div\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
+  | PFloatAdd(e1, e2)   => [%string "%{indent}(float_add\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
+  | PFloatSub(e1, e2)   => [%string "%{indent}(float_sub\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
+  | PFloatMul(e1, e2)   => [%string "%{indent}(float_mul\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
+  | PFloatDiv(e1, e2)   => [%string "%{indent}(float_div\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2}"]
   };
-
+  
 // ================================================================
 // Types
 // ================================================================
 type id = int;
 type level = int;
-
 
 type typ =
   | TConst(name)
@@ -139,7 +164,7 @@ let string_of_typ = (typ) => {
         | Not_found => {
           let name = next_name();
           Hashtbl.add(id_name_map, id, name);
-          name; 
+          [%string "%{name}%{string_of_int(id)}"]; 
         }
       }
     }

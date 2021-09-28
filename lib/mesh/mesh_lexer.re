@@ -240,6 +240,7 @@ let string_of_token = fun
   | LET => "LET"
   | MODULE => "MODULE"
   | ES6_FUN => "ES6_FUN"
+  | EXTERNAL => "EXTERNAL"
   | SEMICOLON => "SEMICOLON"
   | COLON => "COLON"
   | LBRACK => "LBRACK" 

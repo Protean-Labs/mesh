@@ -115,7 +115,19 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
       | e => 
         eval_non_let(env, e) |> (_) => eval_non_let(env, rest)
       }
-      
+    | EPrim(prim) => eval_prim(env, prim)
+    }
+  and eval_prim = (env, prim) =>
+    switch (prim) {
+    | PListCons(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (v, VList(l)) => VList([v, ...l]) | _ => raise(Runtime_error([%string "PListCons: Unexpected types"]))}
+    | PIntAdd(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a + b) | _ => raise(Runtime_error([%string "PIntAdd: Unexpected types"]))}
+    | PIntSub(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a - b) | _ => raise(Runtime_error([%string "PIntSub: Unexpected types"]))}
+    | PIntMul(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a * b) | _ => raise(Runtime_error([%string "PIntMul: Unexpected types"]))}
+    | PIntDiv(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a / b) | _ => raise(Runtime_error([%string "PIntDiv: Unexpected types"]))}
+    | PFloatAdd(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a +. b) | _ => raise(Runtime_error([%string "PFloatAdd: Unexpected types"]))}
+    | PFloatSub(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a -. b) | _ => raise(Runtime_error([%string "PFloatSub: Unexpected types"]))}
+    | PFloatMul(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a *. b) | _ => raise(Runtime_error([%string "PFloatMul: Unexpected types"]))}
+    | PFloatDiv(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a /. b) | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
     };
 
   let eval_let = (env, e) =>

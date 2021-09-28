@@ -115,7 +115,11 @@ let test_cases = [
       let x = 2;
     };",                                            EMod("M", [ELet(PVar("x"), int_lit(2))])),
   ("M.x;",                                          EVar(["M"], "x")),
-  ("M1.M2.x;",                                      EVar(["M1", "M2"], "x"))
+  ("M1.M2.x;",                                      EVar(["M1", "M2"], "x")),
+  
+  // External functions
+  ("external f = \"int_add\";",                     ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(var("a"), var("b"))))))),
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

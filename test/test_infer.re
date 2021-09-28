@@ -63,6 +63,48 @@ let test_cases = [
   (// need to fix diagnose variable inversion after application
     "let f = (a, (b, c)) => {let a = (); let b = 2; (a, b, c);}; let x = f(1, ((), \"hello\")); x;",
     [TConst("unit"), TConst("unit"), TTuple([TConst("unit"), TConst("int"), TConst("string")])]
+  ),
+
+  // External
+  (
+    "external f = \"list_cons\"; let f1 = f(1); let f2 = f(()); f1; f2;",
+    [
+      TConst("unit"), TConst("unit"), TConst("unit"), 
+      TFun(TList(TConst("int")), TList(TConst("int"))),
+      TFun(TList(TConst("unit")), TList(TConst("unit"))) 
+    ]
+  ),
+  (
+    "external f = \"int_add\"; let f1 = f(1); f1;",
+    [TConst("unit"), TConst("unit"), TFun(TConst("int"), TConst("int"))]
+  ),
+  (
+    "external f = \"int_sub\"; let f1 = f(1); f1;",
+    [TConst("unit"), TConst("unit"), TFun(TConst("int"), TConst("int"))]
+  ),
+  (
+    "external f = \"int_mul\"; let f1 = f(1); f1;",
+    [TConst("unit"), TConst("unit"), TFun(TConst("int"), TConst("int"))]
+  ),
+  (
+    "external f = \"int_div\"; let f1 = f(1); f1;",
+    [TConst("unit"), TConst("unit"), TFun(TConst("int"), TConst("int"))]
+  ),
+  (
+    "external f = \"float_add\"; let f1 = f(1.0); f1;",
+    [TConst("unit"), TConst("unit"), TFun(TConst("float"), TConst("float"))]
+  ),
+  (
+    "external f = \"float_sub\"; let f1 = f(1.0); f1;",
+    [TConst("unit"), TConst("unit"), TFun(TConst("float"), TConst("float"))]
+  ),
+  (
+    "external f = \"float_mul\"; let f1 = f(1.0); f1;",
+    [TConst("unit"), TConst("unit"), TFun(TConst("float"), TConst("float"))]
+  ),
+  (
+    "external f = \"float_div\"; let f1 = f(1.0); f1;",
+    [TConst("unit"), TConst("unit"), TFun(TConst("float"), TConst("float"))]
   )
 
 

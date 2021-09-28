@@ -33,7 +33,9 @@ module Env = {
 
 };
 
+
 let new_var = (env, lvl) => TVar(ref(Free(Env.next_id(env), lvl)));
+
 let new_quantified_var = (env) => TVar(ref(Quantified(Env.next_id(env))));
 
 // (other_id == tvar_id)? raise(TypeError("recursive types")):(other_level > tvar_level)? other_tvar := Free(other_id, tvar_level): ();
@@ -50,6 +52,7 @@ let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
     }
     | TApp(fun_typ, param_typ) => {f(fun_typ); f(param_typ)}
     | TFun(param_typ, return_typ) => {f(param_typ); f(return_typ)}
+    | TList(list_typ) => f(list_typ)
     | TConst(_) => ()
     | _ => raise(TypeError("occurs check not implemented"))
   ;
@@ -174,79 +177,129 @@ let rec infer_exn = (env, level, exprs, typs) => {
   
   let inherit_id = (env1: Env.t, env2: Env.t) => {...env2, current_id: env1.current_id};
 
-  let rec f = (env, level, expr) => switch (expr) {
-  | ELit(lit) => (type_const_of_literal(lit), env)
-  | EVar(name) => {
-      let (typ, new_env) = try (instantiate(env, level, Env.lookup(env, name))) {
-        | Not_found => raise(TypeError([%string "variable %{name}"]))
-      };
-      (typ, inherit_id(new_env, env))
+  let rec f = (env, level, expr) => 
+    switch (expr) {
+    | ELit(lit) => (type_const_of_literal(lit), env)
+    | EVar(name) => {
+        let (typ, new_env) = try (instantiate(env, level, Env.lookup(env, name))) {
+          | Not_found => raise(TypeError([%string "variable %{name}"]))
+        };
+        (typ, inherit_id(new_env, env))
+      }
+    | EFun(param_pat, body_expr) => {
+        let rec bind_pat_param = (p) => switch (p) {
+          | PAny => [("", new_var(env, level))]
+          | PVar(name) =>  [(name, new_var(env, level))]
+          | PLit(lit) => [("", type_const_of_literal(lit))]
+          | PTuple(lpat) => 
+            List.fold_left((acc, pat) => acc @ bind_pat_param(pat), [], lpat);
+        };
+        let names_typs = bind_pat_param(param_pat);
+        let param_typ = names_typs |> fun
+          | [] => TConst("unit")
+          | [(_, typ)] => typ
+          | l => {
+            let (_, typs) = List.split(l);
+            TTuple(typs)
+          }
+        ;
+        let fn_env = update_env(env, names_typs);
+        let (return_typ,new_env) = f(fn_env, level, body_expr);
+        (TFun(param_typ, return_typ), inherit_id(new_env, env));
+      }
+    | ELet(pattern, expr) => {
+        let (gen_typ, new_env) = f(env, level + 1, expr) 
+        |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
+        let names_typs = bind_pat_typ(pattern, gen_typ);
+        let new_env2 = update_env(inherit_id(new_env, env), names_typs);
+        (TConst("unit"), new_env2);
+      }
+    | EApp(fn_expr, param_expr) => {
+        let (fn_typ, new_env) = f(env, level, fn_expr);
+        let (param_typ, return_typ) = match_fun_typ(inherit_id(new_env,env), fn_typ);
+        let (param_typ1, new_env1) = f(inherit_id(new_env,env), level, param_expr);
+        unify(param_typ, param_typ1);
+        (return_typ, inherit_id(new_env1,env));
+      }
+    | EList(l) => {
+        let (list_typ, new_env1) = infer_exn(env, level, l, []) 
+        |> ((typs, new_env)) => switch (typs) {
+          | [] => (TList(new_var(new_env, level)), new_env)
+          | [lone] => (TList(lone), new_env)
+          | [first, ...rest] => 
+            try (List.iter(unify(first), rest)) {
+              | TypeError(msg) => raise(TypeError("List" ++ msg))
+            };
+            (TList(first), new_env);
+        };
+        (list_typ, inherit_id(new_env1, env));
+      }
+    | ETuple(l) => {
+        let (tuple_typs, new_env) = infer_exn(env, level, l, []);
+        (TTuple(tuple_typs), inherit_id(new_env, env));
+      }
+    | ESeq(expr1, expr2) => 
+      let (typs, new_env) = infer_exn(env, level, [expr1, expr2], []);
+      (typs |> List.rev |> List.hd, inherit_id(new_env, env));
+    | EPrim(prim) =>
+      typ_of_primitive(prim, env)
     }
-  | EFun(param_pat, body_expr) => {
-      let rec bind_pat_param = (p) => switch (p) {
-        | PAny => [("", new_var(env, level))]
-        | PVar(name) =>  [(name, new_var(env, level))]
-        | PLit(lit) => [("", type_const_of_literal(lit))]
-        | PTuple(lpat) => 
-          List.fold_left((acc, pat) => acc @ bind_pat_param(pat), [], lpat);
-      };
-      let names_typs = bind_pat_param(param_pat);
-      let param_typ = names_typs |> fun
-        | [] => TConst("unit")
-        | [(_, typ)] => typ
-        | l => {
-          let (_, typs) = List.split(l);
-          TTuple(typs)
-        }
-      ;
-      let fn_env = update_env(env, names_typs);
-      let (return_typ,new_env) = f(fn_env, level, body_expr);
-      (TFun(param_typ, return_typ), inherit_id(new_env, env));
-    }
-  | ELet(pattern, expr) => {
-      let (gen_typ, new_env) = f(env, level + 1, expr) 
-      |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
-      let names_typs = bind_pat_typ(pattern, gen_typ);
-      let new_env2 = update_env(inherit_id(new_env, env), names_typs);
-      (TConst("unit"), new_env2);
-    }
-  | EApp(fn_expr, param_expr) => {
-      let (fn_typ, new_env) = f(env, level, fn_expr);
-      let (param_typ, return_typ) = match_fun_typ(inherit_id(new_env,env), fn_typ);
-      let (param_typ1, new_env1) = f(inherit_id(new_env,env), level, param_expr);
-      unify(param_typ, param_typ1);
-      (return_typ, inherit_id(new_env1,env));
-    }
-  | EList(l) => {
-      let (list_typ, new_env1) = infer_exn(env, level, l, []) 
-      |> ((typs, new_env)) => switch (typs) {
-        | [] => (TList(new_var(new_env, level)), new_env)
-        | [lone] => (TList(lone), new_env)
-        | [first, ...rest] => 
-          try (List.iter(unify(first), rest)) {
-            | TypeError(msg) => raise(TypeError("List" ++ msg))
-          };
-          (TList(first), new_env);
-      };
-      (list_typ, inherit_id(new_env1, env));
-    }
-  | ETuple(l) => {
-      let (tuple_typs, new_env) = infer_exn(env, level, l, []);
-      (TTuple(tuple_typs), inherit_id(new_env, env));
-    }
-  | ESeq(expr1, expr2) => 
-    let (typs, new_env) = infer_exn(env, level, [expr1, expr2], []);
-    (typs |> List.rev |> List.hd, inherit_id(new_env, env));
-  };
+    and typ_of_primitive = (prim, env) => switch (prim) {
+      | PListCons(el_expr, list_expr) =>
+        let (typs, new_env) = infer_exn(env, level, [el_expr, list_expr], []) |> ((inferred, nenv)) =>
+        switch (inferred) {
+          | [_, _] as l => (l, nenv)
+          | _ => raise(TypeError("cons_list wrong number of arguments"))
+        };
+        let typ = List.hd(typs);
+        List.iter2(
+          unify,
+          typs,
+          [typ, TList(typ)]
+        );
+        (TList(typ), inherit_id(new_env, env));
+      | PIntAdd(a_expr, b_expr)       => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("int")), typs);
+        (TConst("int"), inherit_id(new_env, env))
+      | PIntSub(a_expr, b_expr)                 =>
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("int")), typs); 
+        (TConst("int"), inherit_id(new_env, env))
+      | PIntMul(a_expr, b_expr)                 => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("int")), typs);
+        (TConst("int"), inherit_id(new_env, env))
+      | PIntDiv(a_expr, b_expr)                 =>
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("int")), typs); 
+        (TConst("int"), inherit_id(new_env, env))
+      | PFloatAdd(a_expr, b_expr)               => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("float")), typs);
+        (TConst("float"), inherit_id(new_env, env))
+      | PFloatSub(a_expr, b_expr)               => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("float")), typs);
+        (TConst("float"), inherit_id(new_env, env))
+      | PFloatMul(a_expr, b_expr)               => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("float")), typs);
+        (TConst("float"), inherit_id(new_env, env))
+      | PFloatDiv(a_expr, b_expr)               => 
+        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(TConst("float")), typs);
+        (TConst("float"), inherit_id(new_env, env))
+    };
 
   switch (exprs) {
-    | [e, ...rest] => 
-      f(env, level, e) |> ((typ, new_env)) =>
-      infer_exn(new_env, level, rest, typs@[typ])
-
-    | [] => (typs, env)
-    }
+  | [e, ...rest] => 
+    f(env, level, e) |> ((typ, new_env)) =>
+    infer_exn(new_env, level, rest, typs@[typ])
+  | [] => (typs, env)
+  }
 };
+
 
 let infer = (env, level, e) =>
   try (R.ok @@ infer_exn(env, level, e, [])) {

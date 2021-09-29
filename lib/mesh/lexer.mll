@@ -11,7 +11,8 @@ let alpha = ['a'-'z' 'A'-'Z']
 let int     = '-'? digit+
 let float   = '-'? digit+ '.' digit*
 let string  = (alpha|digit|'_')*
-let var     = (alpha) (alpha|digit|'_')* 
+let var     = ['a'-'z'] string 
+let mod     = ['A'-'Z'] string
 
 let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@')+
 
@@ -29,6 +30,7 @@ rule token = parse
 | "..."             { DOTDOTDOT }
 
 | ';'               { SEMICOLON }
+| ':'               { COLON }
 | '['               { LBRACK }
 | ']'               { RBRACK }
 | '('               { LPAREN }
@@ -36,8 +38,11 @@ rule token = parse
 | '{'               { LBRACE }
 | '}'               { RBRACE }
 | ','               { COMMA }
+| '.'               { DOT }
 
 | "let"             { LET }
+| "module"          { MODULE }
+| "esfun"           { ES6_FUN }
 | "external"        { EXTERNAL }
 
 | operator as op    { OPERATOR (op) }
@@ -50,6 +55,7 @@ rule token = parse
 | float as lit      { FLOAT (float_of_string lit) }
 | '"'               { read_string (Buffer.create 16) lexbuf }
 | var as varname    { VAR (varname) }
+| mod as modname    { MOD (modname) }
 | eof               { EOF }
 | _                 { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 

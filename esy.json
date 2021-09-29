@@ -15,6 +15,7 @@
     "@opam/easy_logging": "0.8.2",
     "@opam/jupyter-kernel": "0.7",
     "@opam/menhir": "20210419",
+    "@opam/menhirLib": "20210419",
     "@opam/ppx_string": "v0.14.1",
     "@opam/reason": "3.7.0",
     "@opam/rresult": "0.6.0",

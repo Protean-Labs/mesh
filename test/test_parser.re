@@ -4,14 +4,14 @@ open Rresult;
 open Mesh.Syntax;
 
 // Helpers
-let cons = (e, l) => EApp(EApp(EVar("cons"), e), l);
+let cons = (e, l) => EApp(EApp(var("cons"), e), l);
 
 // True positive test cases
 let test_cases = [
   // Literals
-  ("x;",                      EVar("x")),
-  ("x_asd;",                  EVar("x_asd")),
-  ("x0;",                     EVar("x0")),
+  ("x;",                      var("x")),
+  ("x_asd;",                  var("x_asd")),
+  ("x0;",                     var("x0")),
   ("2;",                      int_lit(2)),
   ("-2;",                     int_lit(-2)),
   ("2.1;",                    float_lit(2.1)),
@@ -25,7 +25,7 @@ let test_cases = [
   ("[];",                     EList([])),
   ("[1,2];",                  EList([int_lit(1), int_lit(2)])),
   ("[\"hello\",\"world\"];",  EList([string_lit("hello"), string_lit("world")])),
-  ("[1, 2, ...l];",           cons(int_lit(1), cons(int_lit(2), EVar("l")))),
+  ("[1, 2, ...l];",           cons(int_lit(1), cons(int_lit(2), var("l")))),
   ("[1, 2, ...[3, 4]];",      cons(int_lit(1), cons(int_lit(2), EList([int_lit(3), int_lit(4)])))),
 
   // Tuples
@@ -33,12 +33,11 @@ let test_cases = [
   ("(1, \"hello\");",         ETuple([int_lit(1), string_lit("hello")])),
   ("(1, (\"hello\", 0));",    ETuple([int_lit(1), ETuple([string_lit("hello"), int_lit(0)])])),
 
-
   // Let bindings
-  ("let x = x;",                      ELet(PVar("x"), EVar("x"))),
-  ("let (x) = x;",                    ELet(PVar("x"), EVar("x"))),
-  ("let x = x_asd;",                  ELet(PVar("x"), EVar("x_asd"))),
-  ("let x = x0;",                     ELet(PVar("x"), EVar("x0"))),
+  ("let x = x;",                      ELet(PVar("x"), var("x"))),
+  ("let (x) = x;",                    ELet(PVar("x"), var("x"))),
+  ("let x = x_asd;",                  ELet(PVar("x"), var("x_asd"))),
+  ("let x = x0;",                     ELet(PVar("x"), var("x0"))),
   ("let x = 2;",                      ELet(PVar("x"), int_lit(2))),
   ("let x = -2;",                     ELet(PVar("x"), int_lit(-2))),
   ("let x = 2.1;",                    ELet(PVar("x"), float_lit(2.1))),
@@ -56,50 +55,49 @@ let test_cases = [
   ("let x = (1, (\"hello\", 0));",    ELet(PVar("x"), ETuple([int_lit(1), ETuple([string_lit("hello"), int_lit(0)])]))),
 
   // Infix operators
-  ("a + b;",                          EApp(EApp(EVar("+"), EVar("a")), EVar("b"))),
-  ("a &* b;",                         EApp(EApp(EVar("&*"), EVar("a")), EVar("b"))),
-  ("a <<= b;",                        EApp(EApp(EVar("<<="), EVar("a")), EVar("b"))),
-  ("a ** b;",                         EApp(EApp(EVar("**"), EVar("a")), EVar("b"))),
+  ("a + b;",                          EApp(EApp(var("+"), var("a")), var("b"))),
+  ("a &* b;",                         EApp(EApp(var("&*"), var("a")), var("b"))),
+  ("a <<= b;",                        EApp(EApp(var("<<="), var("a")), var("b"))),
+  ("a ** b;",                         EApp(EApp(var("**"), var("a")), var("b"))),
 
   // Prefix operators
-  ("!a;",                             EApp(EVar("!"), EVar("a"))),
-  ("&@a;",                            EApp(EVar("&@"), EVar("a"))),
-  ("-a;",                             EApp(EVar("-"), EVar("a"))),
+  ("!a;",                             EApp(var("!"), var("a"))),
+  ("&@a;",                            EApp(var("&@"), var("a"))),
+  ("-a;",                             EApp(var("-"), var("a"))),
   
   // Prefix and Infix
-  ("++a / ++b;",                      EApp(EApp(EVar("/"), EApp(EVar("++"), EVar("a"))), EApp(EVar("++"), EVar("b")))),
+  ("++a / ++b;",                      EApp(EApp(var("/"), EApp(var("++"), var("a"))), EApp(var("++"), var("b")))),
 
   // Anonymous functions
-  ("(a, b) => a;",                    EFun(PVar("a"), EFun(PVar("b"), EVar("a")))),
-  ("(a) => (b) => a;",                EFun(PVar("a"), EFun(PVar("b"), EVar("a")))),
+  ("(a, b) => a;",                    EFun(PVar("a"), EFun(PVar("b"), var("a")))),
+  ("(a) => (b) => a;",                EFun(PVar("a"), EFun(PVar("b"), var("a")))),
   ("() => 10;",                       EFun(PLit(Unit), int_lit(10))),
-  ("() => f();",                      EFun(PLit(Unit), EApp(EVar("f"), unit_lit()))),
-  ("(a, b) => f(a + b);",             EFun(PVar("a"), EFun(PVar("b"), EApp(EVar("f"), EApp(EApp(EVar("+"), EVar("a")), EVar("b")))))),
+  ("() => f();",                      EFun(PLit(Unit), EApp(var("f"), unit_lit()))),
+  ("(a, b) => f(a + b);",             EFun(PVar("a"), EFun(PVar("b"), EApp(var("f"), EApp(EApp(var("+"), var("a")), var("b")))))),
   ("(a, b) => {
     foo(a);
     foo(b);
-  };",                                EFun(PVar("a"), EFun(PVar("b"), ESeq(EApp(EVar("foo"), EVar("a")), EApp(EVar("foo"), EVar("b")))))),
+  };",                                EFun(PVar("a"), EFun(PVar("b"), ESeq(EApp(var("foo"), var("a")), EApp(var("foo"), var("b")))))),
 
   // Function binding
-  ("let f = (a, b) => a;",            ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
-  ("let f = ((a, b)) => a;",          ELet(PVar("f"), EFun(PTuple([PVar("a"), PVar("b")]), EVar("a")))),
-  ("let f = (a) => (b) => a;",        ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EVar("a"))))),
-  ("let f = a => a;",                 ELet(PVar("f"), EFun(PVar("a"), EVar("a")))),
+  ("let f = (a, b) => a;",            ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), var("a"))))),
+  ("let f = ((a, b)) => a;",          ELet(PVar("f"), EFun(PTuple([PVar("a"), PVar("b")]), var("a")))),
+  ("let f = (a) => (b) => a;",        ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), var("a"))))),
+  ("let f = a => a;",                 ELet(PVar("f"), EFun(PVar("a"), var("a")))),
   ("let f = () => 10;",               ELet(PVar("f"), EFun(PLit(Unit), int_lit(10)))),
   ("let f = () => {
       foo(a);
       true
-    };",                              ELet(PVar("f"), EFun(PLit(Unit), ESeq(EApp(EVar("foo"), EVar("a")), bool_lit(true))))),
-
+    };",                              ELet(PVar("f"), EFun(PLit(Unit), ESeq(EApp(var("foo"), var("a")), bool_lit(true))))),
 
   // Function application
-  ("f(a, b);",                        EApp(EApp(EVar("f"), EVar("a")), EVar("b"))),
-  ("f(a)(b);",                        EApp(EApp(EVar("f"), EVar("a")), EVar("b"))),
-  ("f((a, b));",                      EApp(EVar("f"), ETuple([EVar("a"), EVar("b")]))),
-  ("f(1);",                           EApp(EVar("f"), int_lit(1))),
+  ("f(a, b);",                        EApp(EApp(var("f"), var("a")), var("b"))),
+  ("f(a)(b);",                        EApp(EApp(var("f"), var("a")), var("b"))),
+  ("f((a, b));",                      EApp(var("f"), ETuple([var("a"), var("b")]))),
+  ("f(1);",                           EApp(var("f"), int_lit(1))),
 
   // Function partial application
-  ("let g = f(a);",                   ELet(PVar("g"), EApp(EVar("f"), EVar("a")))),
+  ("let g = f(a);",                   ELet(PVar("g"), EApp(var("f"), var("a")))),
 
   // Let bindings with patterns
   ("let (a, b) = (0, \"hello\");",                  ELet(PTuple([PVar("a"), PVar("b")]), ETuple([int_lit(0), string_lit("hello")]))),
@@ -107,12 +105,20 @@ let test_cases = [
   ("let (a, (b, c)) = (0, (\"hello\", 1.0));",      ELet(PTuple([PVar("a"), PTuple([PVar("b"), PVar("c")])]), ETuple([int_lit(0), ETuple([string_lit("hello"), float_lit(1.0)])]))),
 
   // Expressions wrapped in parantheses
-  ("(a => a);",                                     EFun(PVar("a"), EVar("a"))),
-  ("((a, b));",                                     ETuple([EVar("a"), EVar("b")])),
+  ("(a => a);",                                     EFun(PVar("a"), var("a"))),
+  ("((a, b));",                                     ETuple([var("a"), var("b")])),
   ("(1);",                                          int_lit(1)),
 
+  // Modules
+  ("module M = {};",                                EMod("M", [])),
+  ("module M = {
+      let x = 2;
+    };",                                            EMod("M", [ELet(PVar("x"), int_lit(2))])),
+  ("M.x;",                                          EVar(["M"], "x")),
+  ("M1.M2.x;",                                      EVar(["M1", "M2"], "x")),
+  
   // External functions
-  ("external f = \"int_add\";",                     ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(EVar("a"), EVar("b"))))))),
+  ("external f = \"int_add\";",                     ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(var("a"), var("b"))))))),
 
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 

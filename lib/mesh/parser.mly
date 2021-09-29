@@ -12,17 +12,22 @@
 %token <string> STRING
 
 %token <string> VAR
+%token <string> MOD
 
 %token <string> OPERATOR
 
 %token LET
+%token MODULE
+%token ES6_FUN
 %token EXTERNAL
 
 %token SEMICOLON
+%token COLON
 %token LBRACK RBRACK
 %token LPAREN RPAREN
 %token LBRACE RBRACE
 %token COMMA
+%token DOT
 
 %token UNDERSCORE
 %token EQUALS
@@ -34,12 +39,14 @@
 %left OPERATOR
 
 %right EQUALS
-%right ARROW
+// %right ARROW
 %nonassoc UNIT
+// %nonassoc ES6_FUN
 
 // %start <Syntax.expr> expr
 %start <Syntax.expr list> file
 
+%on_error_reduce expr
 %%
 
 // ================================================================
@@ -64,27 +71,31 @@
 // Expressions
 // ================================================================
 file:
-  | EOF                                                 { [] }
-  | e = expr SEMICOLON rest = file                      { e :: rest }
+  | EOF                                                     { [] }
+  | e = expr SEMICOLON rest = file                          { e :: rest }
 
 expr:
-  | e = fun_def                                           { e }
-  | e = fun_app                                           { e }
-  | LET p = simple_pattern EQUALS e = expr                { ELet (p, e) }
-  | EXTERNAL p = simple_pattern EQUALS v = STRING         { ELet (p, primitive_of_name v) }
-  | varname = VAR                                         { EVar varname }
-  | lit = literal                                         { ELit lit }
-  | e = e_list                                            { e }
-  | t = tuple                                             { fmt_tuple t }
-  | op = OPERATOR e = expr                                { EApp (EVar op, e) }
-  | e1 = expr op = OPERATOR e2 = expr                     { EApp (EApp (EVar op, e1), e2) }
+  | LET p = simple_pattern EQUALS e = expr                  { ELet (p, e) }
+  | EXTERNAL p = simple_pattern EQUALS v = STRING           { ELet (p, primitive_of_name v) }
+  | e = fun_def                                             { e }
+  | e = fun_app                                             { e }
+  | e = value_path                                          { e }
+  | lit = literal                                           { ELit lit }
+  | e = e_list                                              { e }
+  | e = tuple                                               { e }
+  | op = OPERATOR e = expr                                  { EApp (EVar ([], op), e) }
+  | e1 = expr op = OPERATOR e2 = expr                       { EApp (EApp (EVar ([], op), e1), e2) }
+  | MODULE modname = MOD EQUALS 
+    LBRACE body = structure RBRACE                          { EMod (modname, body) }
+  | ES6_FUN p = simple_pattern ARROW e = fun_body           { EFun (p, e) }
 
 fun_def:
-  | LPAREN UNDERSCORE RPAREN ARROW e = fun_body                         
-  | UNDERSCORE ARROW e = fun_body                                   { EFun (PAny, e) }
-  | UNIT ARROW e = fun_body                                         { EFun (PLit Unit, e) }
-  | varname = VAR ARROW e = fun_body                                { EFun (PVar varname, e) }
-  | args = tuple ARROW e = fun_body                                 { fold_fun e (fmt_fun_pattern (ETuple args)) }
+  | UNIT ARROW e = fun_body                                           { EFun (PLit Unit, e) }
+  | ES6_FUN LPAREN p = separated_nonempty_list(COMMA, simple_pattern) 
+    RPAREN ARROW e = fun_body                                         { fold_fun e p }
+
+// fun_def:
+//   | ES6_FUN p = simple_pattern ARROW e = fun_body           { EFun (p, e) }
 
 fun_body:
   | e = expr                                                        { e }
@@ -102,7 +113,7 @@ fun_app:
     argument is a tuple (instead of two seperate arguments). Therefore, the `tuple` grammar rule only returns 
     the list of expressions `t`, which is transformed according to the parent rule. */
 tuple: 
-  | LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN          { t }
+  | LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN          { fmt_tuple t }
 
 e_list:
   | LBRACK l = lseparated_list(COMMA, expr) DOTDOTDOT e = expr RBRACK  { fold_cons l e }
@@ -121,6 +132,19 @@ literal:
   | v = FLOAT    { Float v }
   | v = STRING   { String v }
   | UNIT         { Unit }
+
+value_path:
+  | varname = VAR                                                   { EVar ([], varname) }
+  | modname = MOD DOT vpath = value_path                            { fmt_value_path vpath modname }
+
+// ================================================================
+// Modules
+// ================================================================
+structure:
+  | (* Empty *)                             { [] }
+  | e = expr                                { [e] }
+  | e = expr SEMICOLON rest = structure     { e :: rest }
+;
 
 // ================================================================
 // Patterns

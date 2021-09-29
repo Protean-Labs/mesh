@@ -1,22 +1,101 @@
-open Syntax;
 open Rresult;
+open Syntax;
 
 exception TypeError(string);
 
+type id = int;
+type level = int;
+
+type typ =
+  | TConst(name)
+  | TFun(typ, typ)
+  | TApp(typ, typ)
+  | TTuple(list(typ))
+  | TList(typ)
+  | TVar(ref(tvar))
+  | TMod(tenv)
+and tvar = 
+  | Free(id, level)
+  | Constrained(typ)
+  | Quantified(id)
+and tenv = list((name, typ))
+;
+
+let string_of_typ = (typ) => {
+  let id_name_map = Hashtbl.create(10);
+  let count = ref(0);
+
+  let next_name = () => {
+    let i = count^;
+    incr(count);
+    let tvar_char = String.make(1, (Char.chr(97 + i mod 26)));
+    let tvar_index = i > 26 ? string_of_int(1 / 26) : ""; 
+    [%string "%{tvar_char}%{tvar_index}"];
+  }
+
+  let concat_typ_strings = (f, typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
+
+  let rec f = (is_simple, typ) => 
+    switch(typ) {
+    | TConst(name) => name
+    | TApp(ftyp, param_typ) => [%string "%{f true ftyp}[%{f false param_typ}]"]
+    | TFun(param_typ, rtyp) => {
+      let arrow_typ_string = [%string "%{f true param_typ} => %{f false rtyp}"]
+      is_simple ? [%string "(%{arrow_typ_string})"] : arrow_typ_string;
+    }
+    | TTuple(l) => [%string "(%{concat_typ_strings f l})"]
+    | TList(typ) => [%string "list(%{f false typ})"]
+    | TMod(_) => [%string "module"]
+    | TVar({contents: Quantified(id)}) => {
+        try (Hashtbl.find(id_name_map, id)) {
+        | Not_found => {
+          let name = next_name();
+          Hashtbl.add(id_name_map, id, name);
+          [%string "%{name}%{string_of_int(id)}"]; 
+        }
+      }
+    }
+    | TVar({contents: Free(id, _)}) => [%string "_%{string_of_int(id)}"]
+    | TVar({contents: Constrained(typ)}) => f(is_simple, typ)
+    };
+  
+  f(false, typ);
+}
 
 module Env = {
-  module StringMap = Map.Make(String);
   type t = {
-    tvars: StringMap.t(typ),
+    tvars: tenv,
     mutable current_id: int
   };
 
   let empty = {
-    tvars: StringMap.empty,
+    tvars: [],
     current_id: 0
   };
-  let extend = (env, name, typ) => {...env, tvars:StringMap.add(name, typ, env.tvars)};
-  let lookup = (env, name) => StringMap.find(name, env.tvars);
+  let extend = (env, path, name, typ) => {
+    ...env, 
+    tvars: List.fold_left((acc, modname) => 
+    switch (List.assoc_opt(modname, acc)) {
+    | Some(TMod(tenv)) => tenv
+    | Some(_)         => raise(TypeError([%string "%{modname} is not a module!"]))
+    | None            => raise(TypeError([%string "Unbound module %{modname}"]))
+    }
+    , env.tvars, path)  |> (mod_ns) => [(name, typ), ...mod_ns]
+  };
+  let lookup = (env, path, name) =>
+  // Attempt to find module namespace based on [path]
+  List.fold_left((acc, modname) => 
+    switch (List.assoc_opt(modname, acc)) {
+    | Some(TMod(tenv)) => tenv
+    | Some(_)         => raise(TypeError([%string "%{modname} is not a module!"]))
+    | None            => raise(TypeError([%string "Unbound module %{modname}"]))
+    }
+  , env.tvars, path)  |> (mod_ns) =>
+  // Attempt to find [name] in module namespace
+  switch (List.assoc_opt(name, mod_ns)) {
+  | Some(t) => t
+  | None    => raise(TypeError([%string "Unbound value %{string_of_expr 0 (EVar(path, name))}"]))
+  }; 
 
   let next_id = (env) => {
     let id = env.current_id;
@@ -26,8 +105,6 @@ module Env = {
   }
 
   let get_string_id = (env) => string_of_int(env.current_id);
-
-  let get_bindings = (env) => StringMap.bindings(env.tvars);
 
   let reset_id = (env) => env.current_id = 0;
 
@@ -100,10 +177,12 @@ let rec generalize = (level) => fun
     TFun(generalize(level, param_typ), generalize(level, return_typ))
   | TList(typ) => TList(generalize(level, typ))
   | TTuple(l) => TTuple(List.map(generalize(level), l))
+  // | TMod(tenv) => TMod(List.split(tenv) |> ((names, typs)) => List.combine(names, List.map(generalize(level), typs)))
   | TVar({contents: Constrained(typ)}) => generalize(level, typ)
   | TVar({contents: Quantified(_)}) as typ => typ
   | TVar({contents: Free(_)}) as typ => typ
   | TConst(_) as typ => typ
+  | TMod(_) => raise(TypeError("Cannot generalize module"))
   // | _ => raise(TypeError("generalize not implemented"))
 ;
 
@@ -127,6 +206,7 @@ let instantiate = (env, level, typ) => {
       | TFun(param_typ, return_typ) => TFun(f(param_typ), f(return_typ))
       | TList(typ1) => TList(f(typ1))
       | TTuple(l) => TTuple(List.map(f, l))
+      | TMod(_) => raise(TypeError("Cannot instantiate module"))
      // | _ => raise(TypeError("instantiate not implemented"))
     };
   };
@@ -144,7 +224,6 @@ let rec match_fun_typ = (env, fun_typ) => switch (fun_typ) {
   }
   | _ => raise(TypeError("Expected a function"))
 };
-
 
 
 let type_const_of_literal = fun 
@@ -168,10 +247,10 @@ let rec bind_pat_typ = (pat, typ) => switch (pat, typ) {
 
 let rec infer_exn = (env, level, exprs, typs) => {
   
-  let update_env = (env, names_typs) => List.fold_right(
+  let update_env = (env, path, names_typs) => List.fold_right(
         ((var_name, var_typ), old_env) => var_name == ""? 
           old_env:
-          Env.extend(old_env, var_name, var_typ),
+          Env.extend(old_env, path, var_name, var_typ),
         names_typs, env
         ); 
   
@@ -180,8 +259,8 @@ let rec infer_exn = (env, level, exprs, typs) => {
   let rec f = (env, level, expr) => 
     switch (expr) {
     | ELit(lit) => (type_const_of_literal(lit), env)
-    | EVar(name) => {
-        let (typ, new_env) = try (instantiate(env, level, Env.lookup(env, name))) {
+    | EVar(path, name) => {
+        let (typ, new_env) = try (instantiate(env, level, Env.lookup(env, path, name))) {
           | Not_found => raise(TypeError([%string "variable %{name}"]))
         };
         (typ, inherit_id(new_env, env))
@@ -203,7 +282,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
             TTuple(typs)
           }
         ;
-        let fn_env = update_env(env, names_typs);
+        let fn_env = update_env(env, [],names_typs);
         let (return_typ,new_env) = f(fn_env, level, body_expr);
         (TFun(param_typ, return_typ), inherit_id(new_env, env));
       }
@@ -211,7 +290,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
         let (gen_typ, new_env) = f(env, level + 1, expr) 
         |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
         let names_typs = bind_pat_typ(pattern, gen_typ);
-        let new_env2 = update_env(inherit_id(new_env, env), names_typs);
+        let new_env2 = update_env(inherit_id(new_env, env), [],names_typs);
         (TConst("unit"), new_env2);
       }
     | EApp(fn_expr, param_expr) => {
@@ -243,6 +322,10 @@ let rec infer_exn = (env, level, exprs, typs) => {
       (typs |> List.rev |> List.hd, inherit_id(new_env, env));
     | EPrim(prim) =>
       typ_of_primitive(prim, env)
+    | EMod(name, exprs) => 
+      let (_, mod_env) = infer_exn(inherit_id(env, Env.empty), level, exprs, []);
+      (TConst("unit"), Env.extend(inherit_id(mod_env, env), [], name, TMod(mod_env.tvars)))
+
     }
     and typ_of_primitive = (prim, env) => switch (prim) {
       | PListCons(el_expr, list_expr) =>

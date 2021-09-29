@@ -1,7 +1,6 @@
 open OUnit2;
 open Rresult;
 
-open Mesh.Syntax;
 open Mesh.Infer;
 
 let test_cases = [
@@ -24,6 +23,10 @@ let test_cases = [
   ),
 
   // Function bindings
+  // (// let f = x => x;
+  //   ELet(PVar("f"), EFun(PVar("x"), var("x"))),
+  //   TFun(TVar({contents: Quantified(0)}), TVar({contents: Quantified(0)}))
+  // ),
   (
     "let f = x => x; let x = f(1); x;",
     [TConst("unit"), TConst("unit"), TConst("int")]
@@ -40,6 +43,10 @@ let test_cases = [
     "let f = () => (); let x = f(); x;",
     [TConst("unit"), TConst("unit"), TConst("unit")]
   ),
+  // (// let f = () => {let a = 1; let b = a; b };
+  //   ELet(PVar("f"), EFun(PLit(unitv()), ESeq(ELet(PVar("a"), int_lit(1)), ESeq(ELet(PVar("b"), var("a")), var("b"))))),
+  //   TFun(TConst("unit"), TConst("int"))
+  // ),
   (
     "let f = () => {let a = 1; let b = a; b }; let x = f(); x;",
     [TConst("unit"), TConst("unit"), TConst("int")]
@@ -105,9 +112,24 @@ let test_cases = [
   (
     "external f = \"float_div\"; let f1 = f(1.0); f1;",
     [TConst("unit"), TConst("unit"), TFun(TConst("float"), TConst("float"))]
+  ),
+
+  // modules
+  (
+    "module M = {
+      let x = 2;
+    };
+    M.x;",
+    [TConst("unit"), TConst("int")]
+  ),
+  (
+    "module M = {
+      let f = (a, b) => a;
+    };
+    let f2 = M.f(1);
+    f2(\"hello\");",
+    [TConst("unit"), TConst("unit"), TConst("int")]
   )
-
-
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 
@@ -124,4 +146,4 @@ let make_single_test = ((mesh_expr, expected)) =>
   }
 
 let suite = 
-  "test_infering" >::: List.map(make_single_test, test_cases);
+  "test_infer" >::: List.map(make_single_test, test_cases);

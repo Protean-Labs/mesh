@@ -1,13 +1,14 @@
 open Syntax
 
 exception InvalidPattern(string);
+exception ParsingError(string);
 
 /** [pattern_of_expr(e)] returns a pattern [p] that matches the expression. 
     Used to convert "tuples" to function argument patterns. Raises 
     [InvalidPattern] if the epxression does not have a pattern equivalent. */
 let rec pattern_of_expr = fun
   | ELit(lit)      => PLit(lit)
-  | EVar(name)     => PVar(name)
+  | EVar(_, name)  => PVar(name)
   | ETuple(exprs)  => PTuple(List.map(pattern_of_expr, exprs))
   | e              => raise(InvalidPattern(string_of_expr(0, e)))
 ;
@@ -50,9 +51,11 @@ let fold_app = (e, args) =>
     [cons] Mesh function (one call for each of the {expr} in [ele]) with the 
     inner most call having the {expr} [e] as second argument.
 
-    TODO: Add example */
+    TODO: Add example
+    TODO: Change `EVar([], "cons")` to `EVar(["List"], "cons")` once stdlib 
+    and `List` module are implemented. */
 let fold_cons = (ele, e) =>
-  List.fold_right((ele, acc) => EApp(EApp(EVar("cons"), ele), acc), ele, e);
+  List.fold_right((ele, acc) => EApp(EApp(EVar([], "cons"), ele), acc), ele, e);
 
 /** [fmt_tuple(elements)] returns an [ETuple] expression containing the list 
     of {expr} [elements] if there are at least two expressions, otherwise the
@@ -61,4 +64,11 @@ let fmt_tuple = (ele) =>
   switch (ele) {
   | [expr] => expr
   | _ => ETuple(ele)
+  };
+
+
+let fmt_value_path = (var, modname) =>
+  switch (var) {
+  | EVar(path, name) => EVar([modname, ...path], name)
+  | _                => raise(ParsingError("fmt_value_path: value is not EVar"))
   };

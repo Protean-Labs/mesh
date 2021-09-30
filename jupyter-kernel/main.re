@@ -1,13 +1,13 @@
 open Jupyter_kernel;
 module K = Client.Kernel;
 
-open Mesh.Syntax;
+open Mesh.Syntax_util;
 
 let exec = (~count, src) => 
   Lwt.return @@ switch (Mesh.parse_file(src)) {
   | Error(`Msg(msg)) => Result.error(msg)
   | Ok(ast) =>
-    List.map(string_of_expr(0), ast)    |> (s) =>
+    List.map(string_of_expr, ast)    |> (s) =>
     [%string "\n%{string_of_int count}:"] ++ String.concat(",\n", s)     |> (pp_ast) =>
     Result.ok @@ K.{msg: Option.some(pp_ast), actions: []}
   };

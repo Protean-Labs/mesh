@@ -4,6 +4,43 @@ open Rresult;
 open Mesh.Syntax;
 open Mesh.Syntax_util;
 
+let rec assert_expr_equal = (expr, expr') => 
+  switch (expr.pexpr_desc, expr'.pexpr_desc) {
+  | (ELit(lit), ELit(lit'))                   => lit == lit' 
+  | (EVar(path, name), EVar(path', name'))    => (path == path') && (name == name')
+  | (EList(l), EList(l'))                     => List.fold_left2((acc, ele, ele') => acc && assert_expr_equal(ele, ele'), true, l, l')
+  | (ETuple(l), ETuple(l'))                   => List.fold_left2((acc, ele, ele') => acc && assert_expr_equal(ele, ele'), true, l, l')
+  | (EApp(e1, e2), EApp(e1', e2'))            => assert_expr_equal(e1, e1') && assert_expr_equal(e2, e2')
+  | (EFun(pat, e), EFun(pat', e'))            => assert_pat_equal(pat, pat') && assert_expr_equal(e, e')
+  | (ELet(pat, e), ELet(pat', e'))            => assert_pat_equal(pat, pat') && assert_expr_equal(e, e')
+  | (ESeq(e, rest), ESeq(e', rest'))          => assert_expr_equal(e, e') && assert_expr_equal(rest, rest')
+  | (EMod(name, body), EMod(name', body'))    => (name == name') && List.fold_left2((acc, ele, ele') => acc && assert_expr_equal(ele, ele'), true, body, body')
+  | (EPrim(prim), EPrim(prim'))               => assert_prim_equal(prim, prim')
+  | _                                         => false
+  }
+and assert_prim_equal = (prim, prim') =>
+  switch (prim, prim') {
+  | (PListCons(e1, e2), PListCons(e1', e2'))    
+  | (PIntAdd(e1, e2), PIntAdd(e1', e2'))        
+  | (PIntSub(e1, e2), PIntSub(e1', e2'))        
+  | (PIntMul(e1, e2), PIntMul(e1', e2'))        
+  | (PIntDiv(e1, e2), PIntDiv(e1', e2'))        
+  | (PFloatAdd(e1, e2), PFloatAdd(e1', e2'))    
+  | (PFloatSub(e1, e2), PFloatSub(e1', e2'))    
+  | (PFloatMul(e1, e2), PFloatMul(e1', e2'))    
+  | (PFloatDiv(e1, e2), PFloatDiv(e1', e2'))  => assert_expr_equal(e1, e1') && assert_expr_equal(e2, e2')
+  | _                                         => false 
+  }
+and assert_pat_equal = (pat, pat') =>
+  switch (pat.ppat_desc, pat'.ppat_desc) {
+  | (PAny, PAny)              => true
+  | (PVar(name), PVar(name')) => name == name'
+  | (PLit(lit), PLit(lit'))   => lit == lit'
+  | (PTuple(l), PTuple(l'))   => List.fold_left2((acc, ele, ele') => acc && assert_pat_equal(ele, ele'), true, l, l')
+  | _                         => false
+  }
+;
+
 // Helpers
 let cons = (e, l) => mk_expr(EApp(mk_expr(EApp(mk_evar("cons"), e)), l));
 
@@ -135,8 +172,18 @@ let pp_ast = (ast) =>
     "\n" ++ String.concat(",\n", s);
   }
 
+let cmp_ast = (ast, ast') =>
+  switch (
+    ast   >>= (ast) =>
+    ast'  >>| (ast') =>
+    List.fold_left2((acc, e, e') => acc && assert_expr_equal(e, e'), true, ast, ast')
+  ) {
+  | Ok(true) => true
+  | _ => false
+  };
+
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_ast, expected, Mesh.parse_file(mesh_src));
+  String.escaped(mesh_src) >:: (_) => assert_equal(~cmp=cmp_ast, ~printer=pp_ast, expected, Mesh.parse_file(mesh_src));
 
 let suite = 
   "test_parser" >::: List.map(make_single_test, test_cases);

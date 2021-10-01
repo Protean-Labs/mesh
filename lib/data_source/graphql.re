@@ -1,6 +1,8 @@
 open Rresult;
-open Piaf;
 open Lwt.Infix;
+
+open Piaf;
+open Graphql_ppx_base;
 
 module type QUERY = {
   type t;
@@ -153,9 +155,7 @@ let introspection = (url) => {
   };
 };
 
-let make_schema = (schema) => {
-  open Graphql_ppx_base;
-  
+let make_schema = (schema) => {  
   open Yojson.Basic.Util;
   open Schema;
   
@@ -180,4 +180,49 @@ let make_schema = (schema) => {
       |> Array.of_list
       |> make_directive_map,
   });
-}
+};
+
+exception Graphql_error(string);
+
+let parse_query = (query) => {
+  let lexer = Graphql_lexer.make(query);
+  // let delimLength =
+  //   switch (delim) {
+  //   | Some(s) => 2 + String.length(s)
+  //   | None => 1
+  //   };
+
+  switch (Graphql_lexer.consume(lexer)) {
+  | Result.Error(_) =>
+    // Location.raise_errorf(
+    //   ~loc=Location.none,
+    //   "%s",
+    //   fmt_lex_err(e.item),
+    // )
+    raise(Graphql_error("Parser error"))
+
+  | Result.Ok(tokens) =>
+    let parser = Graphql_parser.make(tokens);
+    switch (Graphql_parser_document.parse_document(parser)) {
+    | Result.Error(_) =>
+      // Location.raise_errorf(
+      //   ~loc=Location.none,
+      //   "%s",
+      //   fmt_parse_err(e.item),
+      // )
+      raise(Graphql_error("Parser error"))
+    | Result.Ok(document) =>
+      document
+      // let document_with_config =
+      //   Result_decoder.generate_config(
+      //     ~map_loc=((_, _)) => Location.none,
+      //     ~delimiter=None,
+      //     ~initial_query_config=empty_query_config,
+      //     document,
+      //   );
+
+      // document_with_config
+      // |> Result_decoder.unify_document_schema
+      // |> Output_bucklescript_module.generate_module_interfaces(module_name);
+    };
+  };};

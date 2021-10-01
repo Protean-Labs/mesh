@@ -130,14 +130,6 @@ module Env = {
 
 };
 
-
-// let new_var = (env, lvl) => TVar(ref(Free(Env.next_id(env), lvl)));
-
-// let new_quantified_var = (env) => TVar(ref(Quantified(Env.next_id(env))));
-
-
-
-// (other_id == tvar_id)? raise(TypeError("recursive types")):(other_level > tvar_level)? other_tvar := Free(other_id, tvar_level): ();
 let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
   let rec f = fun
     | TVar({contents: Constrained(typ)}) => f(typ)
@@ -367,8 +359,23 @@ let rec infer_exn = (env, level, exprs, typs) => {
         let (tuple_typs, _) = infer_exn(env, level, l, []);
         (TTuple(tuple_typs), env);
       }
-    // | ERecSelect(rec_expr, name)=> 
-    // | ERec(_) => (TRec([]), env)
+    | ERecEmpty => (TRec(TRowEmpty), env)
+    | ERecSelect(rec_expr, label)=>
+      let rest_row_typ = env.new_var(level);
+      let field_typ = env.new_var(level);
+      let param_typ = TRec(TRowExtend(label, field_typ, rest_row_typ));
+      let (rec_typ, _) = f(env, level, rec_expr);
+      unify(env.new_var, param_typ, rec_typ);
+      (field_typ, env); 
+    | ERecExtend(label, expr, rec_expr) =>
+      let rest_row_typ = env.new_var(level);
+      let field_typ = env.new_var(level);
+      let param_typ1 = field_typ;
+      let param_typ2 = TRec(rest_row_typ);
+      let return_typ = TRec(TRowExtend(label, field_typ, rest_row_typ));
+      f(env, level, expr) |> ((expr_typ, _)) => unify(env.new_var, param_typ1, expr_typ);
+      f(env, level, rec_expr) |> ((rec_typ, _)) => unify(env.new_var, param_typ2, rec_typ);
+      (return_typ, env)
     | ESeq(expr1, expr2) => 
       let (typs, _) = infer_exn(env, level, [expr1, expr2], []);
       (typs |> List.rev |> List.hd, env);
@@ -377,7 +384,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
     | EMod(name, exprs) => 
       let (_, new_env:Env.t) = infer_exn({...env, tvars:[]}, level, exprs, []);
       (TConst("unit"), Env.extend(env,[],name ,TMod(new_env.tvars)))
-    | _ => raise(TypeError("infer not implmented"))
+    // | _ => raise(TypeError("infer not implmented"))
     }
     and typ_of_primitive = (prim, env) => switch (prim) {
       | PListCons(el_expr, list_expr) =>

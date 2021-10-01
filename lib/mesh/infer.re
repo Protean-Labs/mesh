@@ -13,6 +13,9 @@ type typ =
   | TTuple(list(typ))
   | TList(typ)
   | TVar(ref(tvar))
+  | TRec(typ)
+  | TRowEmpty
+  | TRowExtend(name, typ, typ)
   | TMod(tenv)
 and tvar = 
   | Free(id, level)
@@ -34,6 +37,8 @@ let string_of_typ = (typ) => {
   }
 
   let concat_typ_strings = (f, typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
+
+  // let rec_to_string = (f,row:tenv) => List.map(((name, typ)) => [%string "%{name}: %{f false typ}"], row) |>  String.concat(", ");
 
   let rec f = (is_simple, typ) => 
     switch(typ) {
@@ -57,20 +62,39 @@ let string_of_typ = (typ) => {
     }
     | TVar({contents: Free(id, _)}) => [%string "_%{string_of_int(id)}"]
     | TVar({contents: Constrained(typ)}) => f(is_simple, typ)
+    | TRec(row) => [%string "{%{f false row}}"]
+    | TRowEmpty => ""
+    | TRowExtend(_) => "TRow extend"
     };
   
   f(false, typ);
 }
 
 module Env = {
+  let counter = () => {
+    let c = ref(0);
+    fun () => {
+      let id = c^;
+      incr(c);
+      id;
+    };
+  };
+
+  let new_var = (counter) => {
+    let current_id = counter();
+    fun (lvl) => TVar(ref(Free(current_id(), lvl)));
+  }
+
   type t = {
     tvars: tenv,
-    mutable current_id: int
+    new_var: level => typ, 
+    mod_path: list(string)
   };
 
   let empty = {
     tvars: [],
-    current_id: 0
+    new_var: new_var(counter),
+    mod_path:[]
   };
   let extend = (env, path, name, typ) => {
     ...env, 
@@ -82,6 +106,13 @@ module Env = {
     }
     , env.tvars, path)  |> (mod_ns) => [(name, typ), ...mod_ns]
   };
+
+  let extend_fold = (env, path, names_typs) => List.fold_right(
+    ((var_name, var_typ), old_env) => var_name == ""? 
+      old_env:
+      extend(old_env, path, var_name, var_typ),
+    names_typs, env
+    ); 
   let lookup = (env, path, name) =>
   // Attempt to find module namespace based on [path]
   List.fold_left((acc, modname) => 
@@ -97,23 +128,16 @@ module Env = {
   | None    => raise(TypeError([%string "Unbound value %{string_of_expr 0 (EVar(path, name))}"]))
   }; 
 
-  let next_id = (env) => {
-    let id = env.current_id;
-    // print_endline([%string "id update %{string_of_int(id)}"]);
-    env.current_id = env.current_id + 1;
-    id;
-  }
-
-  let get_string_id = (env) => string_of_int(env.current_id);
-
-  let reset_id = (env) => env.current_id = 0;
+  let reset_id = (env) => {...env, new_var :new_var(counter)};
 
 };
 
 
-let new_var = (env, lvl) => TVar(ref(Free(Env.next_id(env), lvl)));
+// let new_var = (env, lvl) => TVar(ref(Free(Env.next_id(env), lvl)));
 
-let new_quantified_var = (env) => TVar(ref(Quantified(Env.next_id(env))));
+// let new_quantified_var = (env) => TVar(ref(Quantified(Env.next_id(env))));
+
+
 
 // (other_id == tvar_id)? raise(TypeError("recursive types")):(other_level > tvar_level)? other_tvar := Free(other_id, tvar_level): ();
 let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
@@ -130,30 +154,33 @@ let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
     | TApp(fun_typ, param_typ) => {f(fun_typ); f(param_typ)}
     | TFun(param_typ, return_typ) => {f(param_typ); f(return_typ)}
     | TList(list_typ) => f(list_typ)
+    | TRec(row) => f(row)
+    | TRowExtend(_, field_typ, row) => { f(field_typ); f(row);}
+    | TRowEmpty => ()
     | TConst(_) => ()
     | _ => raise(TypeError("occurs check not implemented"))
   ;
   f(typ);
 };
 
-let rec unify = (typ1, typ2) => {
+let rec unify = (new_var, typ1, typ2) => {
   typ1 == typ2 ? () :
   switch (typ1, typ2) {
     | (TConst(name1), TConst(name2)) when name1 == name2 => ()
     | (TApp(fun_typ1, param_typ1), TApp(fun_typ2, param_typ2)) => {
-      unify(fun_typ1, fun_typ2); unify(param_typ1, param_typ2);
+      unify(new_var, fun_typ1, fun_typ2); unify(new_var, param_typ1, param_typ2);
     };
     | (TFun(param_typ1, return_typ1), TFun(param_typ2, return_typ2)) => {
-      unify(param_typ1, param_typ2); unify(return_typ1, return_typ2);
+      unify(new_var, param_typ1, param_typ2); unify(new_var, return_typ1, return_typ2);
     };
-    | (TList(typ1), TList(typ2)) => unify(typ1, typ2)
+    | (TList(typ1), TList(typ2)) => unify(new_var, typ1, typ2)
     | (TTuple(typs1), TTuple(typs2)) => {
-        try(List.iter2((typ1, typ2) => unify(typ1,typ2), typs1, typs2)){
-          | Invalid_argument(_) => raise(TypeError("Cant unify tuples of different lengths"))
+        try(List.iter2((typ1, typ2) => unify(new_var, typ1,typ2), typs1, typs2)){
+          | Invalid_argument(_) => raise(TypeError("Cant unify new_var, tuples of different lengths"))
         }
       }
-    | (TVar({contents: Constrained(typ1)}), typ2) => unify(typ1, typ2)
-    | (typ1, TVar({contents: Constrained(typ2)})) => unify(typ1, typ2)
+    | (TVar({contents: Constrained(typ1)}), typ2) => unify(new_var, typ1, typ2)
+    | (typ1, TVar({contents: Constrained(typ2)})) => unify(new_var, typ1, typ2)
     | (TVar({contents: Free(id1, _)}), TVar({contents: Free(id2, _)})) when id1 == id2 =>
       raise(TypeError("Can only have one instance of a type variable"))
     | (TVar({contents: Free(id, level)} as tvar), typ2) => {
@@ -163,9 +190,37 @@ let rec unify = (typ1, typ2) => {
     | (typ1, TVar({contents: Free(id, level)} as tvar)) => {
       occurs_check_adjust_levels(id, level, typ1);
       tvar := Constrained(typ1);
-    } 
+    }
+    | (TRec(row1), TRec(row2)) => unify(new_var, row1, row2)
+    | (TRowEmpty, TRowEmpty) => ()
+    | (TRowExtend(label1, field_typ1, rest_row1), TRowExtend(_) as row2) =>
+      let rest_row_tvar_ref_option = switch (rest_row1) {
+        | TVar({contents: Free(_)} as tvar_ref) => Some(tvar_ref)
+        | _ => None
+      };
+      let rest_row2 = rewrite_row(new_var, row2, label1, field_typ1);
+      switch (rest_row_tvar_ref_option) {
+        | Some({contents: Constrained(_)}) => raise(TypeError("Recursive row types"))
+        | _ => ()
+      }
+      unify(new_var, rest_row1, rest_row2)
     | (_, _) => raise(TypeError([%string "Cannot unify %{string_of_typ(typ1)} and %{string_of_typ(typ2)}"]))
   }
+}
+and rewrite_row = (new_var, row2, label1, field_typ1) => switch (row2) {
+  | TRowEmpty => raise(TypeError([%string "rec does not contain label %{label1}"]))
+  | TRowExtend(label2, field_typ2, rest_row2) when label2 == label1 =>
+    unify(new_var, field_typ1, field_typ2);
+    rest_row2;
+  | TRowExtend(label2, field_typ2, rest_row2) => 
+    TRowExtend(label2, field_typ2, rewrite_row(new_var, rest_row2, label1, field_typ1))
+  | TVar({contents: Constrained(row2)}) => rewrite_row(new_var, row2, label1, field_typ1)
+  | TVar({contents: Free(_, level)} as tvar) => 
+    let rest_row2 = new_var(level);
+    let typ2 = TRowExtend(label1, field_typ1, rest_row2);
+    tvar := Constrained(typ2);
+    rest_row2
+  | _ => raise(TypeError("rewrite requires rec type"))
 };
 
 let rec generalize = (level) => fun
@@ -178,15 +233,18 @@ let rec generalize = (level) => fun
   | TList(typ) => TList(generalize(level, typ))
   | TTuple(l) => TTuple(List.map(generalize(level), l))
   // | TMod(tenv) => TMod(List.split(tenv) |> ((names, typs)) => List.combine(names, List.map(generalize(level), typs)))
+  | TRec(row) => TRec(generalize(level,row))
+  | TMod(_) => raise(TypeError("Cannot generalize module"))
+  | TRowExtend(label, field_typ, row) =>  TRowExtend(label, generalize(level,field_typ), generalize(level,row))
   | TVar({contents: Constrained(typ)}) => generalize(level, typ)
   | TVar({contents: Quantified(_)}) as typ => typ
   | TVar({contents: Free(_)}) as typ => typ
   | TConst(_) as typ => typ
-  | TMod(_) => raise(TypeError("Cannot generalize module"))
+  | TRowEmpty as typ => typ
   // | _ => raise(TypeError("generalize not implemented"))
 ;
 
-let instantiate = (env, level, typ) => {
+let instantiate = (new_var, level:level, typ) => {
   let id_var_map = Hashtbl.create(10);
   let rec f = (typ) => {
     switch(typ) {
@@ -195,7 +253,7 @@ let instantiate = (env, level, typ) => {
       | TVar({contents: Quantified(id)}) => {
         try (Hashtbl.find(id_var_map, id)){
           | Not_found => {
-            let var = new_var(env, level);
+            let var = new_var(level);
             Hashtbl.add(id_var_map, id, var);
             var;
             };
@@ -206,19 +264,22 @@ let instantiate = (env, level, typ) => {
       | TFun(param_typ, return_typ) => TFun(f(param_typ), f(return_typ))
       | TList(typ1) => TList(f(typ1))
       | TTuple(l) => TTuple(List.map(f, l))
+      | TRec(row) => TRec(f(row))
       | TMod(_) => raise(TypeError("Cannot instantiate module"))
+      | TRowEmpty => typ 
+      | TRowExtend(label, field_typ, row) => TRowExtend(label, f(field_typ), f(row))
      // | _ => raise(TypeError("instantiate not implemented"))
     };
   };
-  (f(typ), env);
+  f(typ);
 };
 
-let rec match_fun_typ = (env, fun_typ) => switch (fun_typ) {
+let rec match_fun_typ = (new_var, fun_typ) => switch (fun_typ) {
   | TFun(param_typ, return_typ)              => (param_typ, return_typ)
-  | TVar({contents: Constrained(typ)})       => match_fun_typ(env, typ)
+  | TVar({contents: Constrained(typ)})       => match_fun_typ(new_var, typ)
   | TVar({contents: Free(_, level)} as tvar) => {
-    let param_typ = new_var(env, level);
-    let return_typ = new_var(env, level);
+    let param_typ = new_var(level);
+    let return_typ = new_var(level);
     tvar := Constrained(TFun(param_typ, return_typ));
     (param_typ, return_typ);
   }
@@ -246,29 +307,21 @@ let rec bind_pat_typ = (pat, typ) => switch (pat, typ) {
 
 
 let rec infer_exn = (env, level, exprs, typs) => {
-  
-  let update_env = (env, path, names_typs) => List.fold_right(
-        ((var_name, var_typ), old_env) => var_name == ""? 
-          old_env:
-          Env.extend(old_env, path, var_name, var_typ),
-        names_typs, env
-        ); 
-  
-  let inherit_id = (env1: Env.t, env2: Env.t) => {...env2, current_id: env1.current_id};
 
   let rec f = (env, level, expr) => 
     switch (expr) {
     | ELit(lit) => (type_const_of_literal(lit), env)
     | EVar(path, name) => {
-        let (typ, new_env) = try (instantiate(env, level, Env.lookup(env, path, name))) {
+        let nv = env.new_var;
+        let typ = try (instantiate(nv, level, Env.lookup(env, path, name))) {
           | Not_found => raise(TypeError([%string "variable %{name}"]))
         };
-        (typ, inherit_id(new_env, env))
+        (typ, env)
       }
     | EFun(param_pat, body_expr) => {
         let rec bind_pat_param = (p) => switch (p) {
-          | PAny => [("", new_var(env, level))]
-          | PVar(name) =>  [(name, new_var(env, level))]
+          | PAny => [("", env.new_var(level))]
+          | PVar(name) =>  [(name, env.new_var(level))]
           | PLit(lit) => [("", type_const_of_literal(lit))]
           | PTuple(lpat) => 
             List.fold_left((acc, pat) => acc @ bind_pat_param(pat), [], lpat);
@@ -282,97 +335,99 @@ let rec infer_exn = (env, level, exprs, typs) => {
             TTuple(typs)
           }
         ;
-        let fn_env = update_env(env, [],names_typs);
-        let (return_typ,new_env) = f(fn_env, level, body_expr);
-        (TFun(param_typ, return_typ), inherit_id(new_env, env));
+        let fn_env = Env.extend_fold(env, [],names_typs);
+        let (return_typ,_) = f(fn_env, level, body_expr);
+        (TFun(param_typ, return_typ), env);
       }
     | ELet(pattern, expr) => {
-        let (gen_typ, new_env) = f(env, level + 1, expr) 
+        let (gen_typ, _) = f(env, level + 1, expr) 
         |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
         let names_typs = bind_pat_typ(pattern, gen_typ);
-        let new_env2 = update_env(inherit_id(new_env, env), [],names_typs);
+        let new_env2 = Env.extend_fold(env, [],names_typs);
         (TConst("unit"), new_env2);
       }
     | EApp(fn_expr, param_expr) => {
-        let (fn_typ, new_env) = f(env, level, fn_expr);
-        let (param_typ, return_typ) = match_fun_typ(inherit_id(new_env,env), fn_typ);
-        let (param_typ1, new_env1) = f(inherit_id(new_env,env), level, param_expr);
-        unify(param_typ, param_typ1);
-        (return_typ, inherit_id(new_env1,env));
+        let (fn_typ, _) = f(env, level, fn_expr);
+        let (param_typ, return_typ) = match_fun_typ(env.new_var, fn_typ);
+        let (param_typ1, _) = f(env, level, param_expr);
+        unify(env.new_var, param_typ, param_typ1);
+        (return_typ, env);
       }
     | EList(l) => {
-        let (list_typ, new_env1) = infer_exn(env, level, l, []) 
+        let (list_typ, _) = infer_exn(env, level, l, []) 
         |> ((typs, new_env)) => switch (typs) {
-          | [] => (TList(new_var(new_env, level)), new_env)
+          | [] => (TList(env.new_var(level)), new_env)
           | [lone] => (TList(lone), new_env)
           | [first, ...rest] => 
-            try (List.iter(unify(first), rest)) {
+            try (List.iter(unify(env.new_var,first), rest)) {
               | TypeError(msg) => raise(TypeError("List" ++ msg))
             };
             (TList(first), new_env);
         };
-        (list_typ, inherit_id(new_env1, env));
+        (list_typ, env);
       }
     | ETuple(l) => {
-        let (tuple_typs, new_env) = infer_exn(env, level, l, []);
-        (TTuple(tuple_typs), inherit_id(new_env, env));
+        let (tuple_typs, _) = infer_exn(env, level, l, []);
+        (TTuple(tuple_typs), env);
       }
+    // | ERecSelect(rec_expr, name)=> 
+    // | ERec(_) => (TRec([]), env)
     | ESeq(expr1, expr2) => 
-      let (typs, new_env) = infer_exn(env, level, [expr1, expr2], []);
-      (typs |> List.rev |> List.hd, inherit_id(new_env, env));
+      let (typs, _) = infer_exn(env, level, [expr1, expr2], []);
+      (typs |> List.rev |> List.hd, env);
     | EPrim(prim) =>
       typ_of_primitive(prim, env)
     | EMod(name, exprs) => 
-      let (_, mod_env) = infer_exn(inherit_id(env, Env.empty), level, exprs, []);
-      (TConst("unit"), Env.extend(inherit_id(mod_env, env), [], name, TMod(mod_env.tvars)))
-
+      let (_, new_env) = infer_exn({...env,mod_path:[name]}, level, exprs, []);
+      (TConst("unit"), new_env)
+    | _ => raise(TypeError("infer not implmented"))
     }
     and typ_of_primitive = (prim, env) => switch (prim) {
       | PListCons(el_expr, list_expr) =>
-        let (typs, new_env) = infer_exn(env, level, [el_expr, list_expr], []) |> ((inferred, nenv)) =>
+        let (typs, _) = infer_exn(env, level, [el_expr, list_expr], []) |> ((inferred, nenv)) =>
         switch (inferred) {
           | [_, _] as l => (l, nenv)
           | _ => raise(TypeError("cons_list wrong number of arguments"))
         };
         let typ = List.hd(typs);
         List.iter2(
-          unify,
+          unify(env.new_var), 
           typs,
           [typ, TList(typ)]
         );
-        (TList(typ), inherit_id(new_env, env));
+        (TList(typ), env);
       | PIntAdd(a_expr, b_expr)       => 
-        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(TConst("int")), typs);
-        (TConst("int"), inherit_id(new_env, env))
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs);
+        (TConst("int"), env)
       | PIntSub(a_expr, b_expr)                 =>
-        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(TConst("int")), typs); 
-        (TConst("int"), inherit_id(new_env, env))
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs); 
+        (TConst("int"), env)
       | PIntMul(a_expr, b_expr)                 => 
-        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(TConst("int")), typs);
-        (TConst("int"), inherit_id(new_env, env))
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs);
+        (TConst("int"), env)
       | PIntDiv(a_expr, b_expr)                 =>
-        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(TConst("int")), typs); 
-        (TConst("int"), inherit_id(new_env, env))
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs); 
+        (TConst("int"), env)
       | PFloatAdd(a_expr, b_expr)               => 
-        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(TConst("float")), typs);
-        (TConst("float"), inherit_id(new_env, env))
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs);
+        (TConst("float"), env)
       | PFloatSub(a_expr, b_expr)               => 
-        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(TConst("float")), typs);
-        (TConst("float"), inherit_id(new_env, env))
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs);
+        (TConst("float"), env)
       | PFloatMul(a_expr, b_expr)               => 
-        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(TConst("float")), typs);
-        (TConst("float"), inherit_id(new_env, env))
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs);
+        (TConst("float"), env)
       | PFloatDiv(a_expr, b_expr)               => 
-        let (typs, new_env) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(TConst("float")), typs);
-        (TConst("float"), inherit_id(new_env, env))
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs);
+        (TConst("float"), env)
     };
 
   switch (exprs) {

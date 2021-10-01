@@ -49,6 +49,9 @@ type expr =
   | EApp(expr, expr)
   | EFun(pattern, expr)
   | ELet(pattern, expr)
+  | ERecSelect(expr, name)
+  | ERecExtend(name, expr, expr)
+  | ERecEmpty
   | ESeq(expr, expr)
   | EMod(name, list(expr))
   | EPrim(primitive)
@@ -96,6 +99,9 @@ let rec string_of_expr = (level, e) =>
   | EApp(e1, e2)        => [%string "%{indent}(EApp %{string_of_expr 0 e1}\n%{string_of_expr (level + 1) e2})"]
   | EFun(pat, e)        => [%string "%{indent}(EFun %{string_of_pattern pat} =>\n%{string_of_expr (level + 1) e})"]
   | ELet(pat, e)        => [%string "%{indent}(ELet %{string_of_pattern pat} =\n%{string_of_expr (level + 1) e})"]
+  | ERecSelect(_, name) => name
+  | ERecExtend(_)       => "rec extend"
+  | ERecEmpty           => "{}"
   | ESeq(e, rest)       => [%string "%{indent}(ESeq \n%{string_of_expr (level + 1) e}\n%{string_of_expr (level + 1) rest})"]
   | EMod(name, body)    => 
     List.map((ele) => string_of_expr(level + 1, ele), body) |> String.concat("\n") |> (elements) =>    

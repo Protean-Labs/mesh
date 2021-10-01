@@ -87,14 +87,12 @@ module Env = {
 
   type t = {
     tvars: tenv,
-    new_var: level => typ, 
-    mod_path: list(string)
+    new_var: level => typ
   };
 
   let empty = {
     tvars: [],
-    new_var: new_var(counter),
-    mod_path:[]
+    new_var: new_var(counter)
   };
   let extend = (env, path, name, typ) => {
     ...env, 
@@ -308,12 +306,11 @@ let rec bind_pat_typ = (pat, typ) => switch (pat, typ) {
 
 let rec infer_exn = (env, level, exprs, typs) => {
 
-  let rec f = (env, level, expr) => 
+  let rec f = (env: Env.t, level, expr) => 
     switch (expr) {
     | ELit(lit) => (type_const_of_literal(lit), env)
     | EVar(path, name) => {
-        let nv = env.new_var;
-        let typ = try (instantiate(nv, level, Env.lookup(env, path, name))) {
+        let typ = try (instantiate(env.new_var, level, Env.lookup(env, path, name))) {
           | Not_found => raise(TypeError([%string "variable %{name}"]))
         };
         (typ, env)
@@ -343,7 +340,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
         let (gen_typ, _) = f(env, level + 1, expr) 
         |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
         let names_typs = bind_pat_typ(pattern, gen_typ);
-        let new_env2 = Env.extend_fold(env, [],names_typs);
+        let new_env2 = Env.extend_fold(env, [], names_typs);
         (TConst("unit"), new_env2);
       }
     | EApp(fn_expr, param_expr) => {
@@ -378,8 +375,8 @@ let rec infer_exn = (env, level, exprs, typs) => {
     | EPrim(prim) =>
       typ_of_primitive(prim, env)
     | EMod(name, exprs) => 
-      let (_, new_env) = infer_exn({...env,mod_path:[name]}, level, exprs, []);
-      (TConst("unit"), new_env)
+      let (_, new_env:Env.t) = infer_exn({...env, tvars:[]}, level, exprs, []);
+      (TConst("unit"), Env.extend(env,[],name ,TMod(new_env.tvars)))
     | _ => raise(TypeError("infer not implmented"))
     }
     and typ_of_primitive = (prim, env) => switch (prim) {

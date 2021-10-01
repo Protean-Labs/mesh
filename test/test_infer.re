@@ -142,7 +142,7 @@ let pp_typ_signatures = (typs) =>
 let make_single_test = ((mesh_expr, expected)) =>
   (mesh_expr) >:: (_) => {
     // assert_equal(~printer=pp_typ_signatures, expected, infer(Env.empty, 0, [mesh_expr]));
-    assert_equal(~printer=pp_typ_signatures, expected, Mesh.parse_file(mesh_expr) >>= infer(Env.empty, 0) >>| ((typs, new_env)) => {Env.reset_id(new_env); typs});
+    assert_equal(~printer=pp_typ_signatures, expected, Mesh.parse_file(mesh_expr) >>= infer(Env.empty, 0) >>| ((typs, _)) => typs);
   }
 
 let suite = 

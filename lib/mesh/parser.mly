@@ -1,6 +1,9 @@
 %{
   open Syntax
+  open Syntax_util
+
   open Primitives
+
   open Parser_util
 %}
 
@@ -57,25 +60,39 @@ file:
   | e = expr SEMICOLON rest = file                          { e :: rest }
 
 expr:
-  | LET p = simple_pattern EQUALS e = expr                  { ELet (p, e) }
-  | EXTERNAL p = simple_pattern EQUALS v = STRING           { ELet (p, primitive_of_name v) }
+  | LET p = simple_pattern EQUALS e = expr                  
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, e)) }
+  
+  | EXTERNAL p = simple_pattern EQUALS v = STRING           
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, primitive_of_name v)) }
+  
   | e = fun_def                                             { e }
   | e = fun_app                                             { e }
   | e = value_path                                          { e }
-  | lit = literal                                           { ELit lit }
+  | lit = literal                                           
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELit lit) }
+  
   | e = e_list                                              { e }
   | e = tuple                                               { e }
-  | op = OPERATOR e = expr                                  { EApp (EVar ([], op), e) }
-  | e1 = expr op = OPERATOR e2 = expr                       { EApp (EApp (EVar ([], op), e1), e2) }
-  | MODULE modname = MOD EQUALS 
-    LBRACE body = structure RBRACE                          { EMod (modname, body) }
+  | op = OPERATOR e = expr                                  
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EVar ([], op)), e)) }
+  
+  | e1 = expr op = OPERATOR e2 = expr                       
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EApp (mk_expr (EVar ([], op)), e1)), e2)) }
+  
+  | MODULE modname = MOD EQUALS
+    LBRACE body = structure RBRACE                          
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EMod (modname, body)) }
   | e = braced_expr                                         { e }
 
 fun_def:
-  | UNIT ARROW e = expr                                           { EFun (PLit Unit, e) }
-  | ES6_FUN p = simple_pattern ARROW e = expr                     { EFun (p, e) }
+  | UNIT ARROW e = expr                                           
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (mk_pat (PLit Unit), e)) }
+  | ES6_FUN p = simple_pattern ARROW e = expr                     
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (p, e)) }
   | ES6_FUN LPAREN p = separated_nonempty_list(COMMA, simple_pattern) 
-    RPAREN ARROW e = expr                                         { fold_fun e p }
+    RPAREN ARROW e = expr                                         
+    { fold_fun e p }
 
 braced_expr:
   | LBRACE e = seq_expr RBRACE                                      { e }
@@ -83,13 +100,15 @@ braced_expr:
 
 record_expr:
   | DOTDOTDOT base = expr fields = lnonempty_list(preceded(COMMA, lbl_expr)) COMMA?   { fold_record base fields }
-  | fields = separated_nonempty_list(COMMA, lbl_expr) COMMA?                          { fold_record ERecEmpty fields }
+  | fields = separated_nonempty_list(COMMA, lbl_expr) COMMA?                          { fold_record (mk_expr ERecEmpty) fields }
 
 lbl_expr:
-  | varname = VAR COLON e = expr                                    { (varname, e) }
+  | varname = VAR COLON e = expr                                    { (varname, e, (mklocation $symbolstartpos $endpos)) }
 
 fun_app:
-  | e = expr UNIT                                                   { EApp (e, unit_lit ()) }
+  | e = expr UNIT                                                   
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (e, mk_elit_unit ())) }
+  
   | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN       { fold_app e args }
 
 /** Note: Due to the fact that we are reusing the `tuple` rule for both tuple expressions (i.e.: ETuple)
@@ -100,15 +119,20 @@ fun_app:
     argument is a tuple (instead of two seperate arguments). Therefore, the `tuple` grammar rule only returns 
     the list of expressions `t`, which is transformed according to the parent rule. */
 tuple: 
-  | LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN          { fmt_tuple t }
+  | LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN          
+    { fmt_tuple t (mklocation $symbolstartpos $endpos) }
 
 e_list:
-  | LBRACK l = lseparated_list(COMMA, expr) COMMA DOTDOTDOT e = expr RBRACK  { fold_cons l e }
-  | LBRACK l = lseparated_list(COMMA, expr) RBRACK                           { EList l }
+  | LBRACK l = lseparated_list(COMMA, expr) COMMA DOTDOTDOT e = expr RBRACK  
+    { fold_cons l e (mklocation $symbolstartpos $endpos) }
+  
+  | LBRACK l = lseparated_list(COMMA, expr) RBRACK                           
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EList l) }
 
 seq_expr:
   | e = seq_expr_no_seq                                             { e }
-  | e = expr SEMICOLON rest = seq_expr                              { ESeq (e, rest) }
+  | e = expr SEMICOLON rest = seq_expr                              
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ESeq (e, rest)) }
 
 seq_expr_no_seq:
   | e = expr SEMICOLON?                                             { e }
@@ -121,8 +145,11 @@ literal:
   | UNIT         { Unit }
 
 value_path:
-  | varname = VAR                                                   { EVar ([], varname) }
-  | modname = MOD DOT vpath = value_path                            { fmt_value_path vpath modname }
+  | varname = VAR                                                   
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EVar ([], varname)) }
+
+  | modname = MOD DOT vpath = value_path                            
+    { fmt_value_path vpath modname (mklocation $symbolstartpos $endpos) }
 
 // ================================================================
 // Modules
@@ -141,13 +168,20 @@ simple_pattern:
   | p = simple_pattern_not_ident                                    { p }
 
 simple_pattern_ident:
-  | varname = VAR                                                   { PVar varname }
+  | varname = VAR                                                   
+    { mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PVar varname) }
 
 simple_pattern_not_ident:
-  | UNDERSCORE                                                          { PAny }
-  | lit = literal                                                       { PLit lit }
-  | LPAREN t = separated_nonempty_list(COMMA, simple_pattern) RPAREN    { if List.length t == 1 then List.hd t else PTuple t }
+  | UNDERSCORE                                                          
+    { mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PAny) }
+  
+  | lit = literal                                                       
+    { mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PLit lit) }
 
+  | LPAREN t = separated_nonempty_list(COMMA, simple_pattern) RPAREN    
+    { if List.length t == 1 
+      then List.hd t 
+      else mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PTuple t) }
 
 // ================================================================
 // Helpers

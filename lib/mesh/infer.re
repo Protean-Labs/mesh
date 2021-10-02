@@ -1,5 +1,7 @@
 open Rresult;
+
 open Syntax;
+open Syntax_util;
 
 exception TypeError(string);
 
@@ -111,23 +113,23 @@ module Env = {
       extend(old_env, path, var_name, var_typ),
     names_typs, env
     ); 
-  let lookup = (env, path, name) =>
-  // Attempt to find module namespace based on [path]
-  List.fold_left((acc, modname) => 
-    switch (List.assoc_opt(modname, acc)) {
-    | Some(TMod(tenv)) => tenv
-    | Some(_)         => raise(TypeError([%string "%{modname} is not a module!"]))
-    | None            => raise(TypeError([%string "Unbound module %{modname}"]))
-    }
-  , env.tvars, path)  |> (mod_ns) =>
-  // Attempt to find [name] in module namespace
-  switch (List.assoc_opt(name, mod_ns)) {
-  | Some(t) => t
-  | None    => raise(TypeError([%string "Unbound value %{string_of_expr 0 (EVar(path, name))}"]))
-  }; 
+
+  let lookup = (env, path, name, loc) =>
+    // Attempt to find module namespace based on [path]
+    List.fold_left((acc, modname) => 
+      switch (List.assoc_opt(modname, acc)) {
+      | Some(TMod(tenv)) => tenv
+      | Some(_)         => raise(TypeError([%string "%{modname} is not a module!"]))
+      | None            => raise(TypeError([%string "Unbound module %{modname}"]))
+      }
+    , env.tvars, path)  |> (mod_ns) =>
+    // Attempt to find [name] in module namespace
+    switch (List.assoc_opt(name, mod_ns)) {
+    | Some(t) => t
+    | None    => raise(TypeError([%string "Unbound value %{string_of_expr (mk_expr ~loc (EVar(path, name)))}"]))
+    }; 
 
   let reset_id = (env) => {...env, new_var :new_var(counter)};
-
 };
 
 let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
@@ -236,7 +238,7 @@ let rec generalize = (level) => fun
 
 let instantiate = (new_var, level:level, typ) => {
   let id_var_map = Hashtbl.create(10);
-  let rec f = (typ) => {
+  let rec f = (typ) =>
     switch(typ) {
       | TConst(_) => typ
       | TVar({contents: Constrained(typ)}) => f(typ)
@@ -260,7 +262,7 @@ let instantiate = (new_var, level:level, typ) => {
       | TRowExtend(label, field_typ, row) => TRowExtend(label, f(field_typ), f(row))
      // | _ => raise(TypeError("instantiate not implemented"))
     };
-  };
+
   f(typ);
 };
 
@@ -286,35 +288,38 @@ let type_const_of_literal = fun
 ; 
 
 
-let rec bind_pat_typ = (pat, typ) => switch (pat, typ) {
+let rec bind_pat_typ = (pat, typ) => 
+  switch (pat.ppat_desc, typ) {
   | (PAny, _) => []
   | (PVar(name), e) => [(name, e)]
   | (PLit(_), _) => []
   | (PTuple(lpat), TTuple(lt)) => 
     List.fold_left2((acc, pat, e) => acc @ bind_pat_typ(pat, e), [], lpat, lt)
   | _ => raise(TypeError("Cannot destructure pattern"))
-};
+  };
 
 
 let rec infer_exn = (env, level, exprs, typs) => {
 
   let rec f = (env: Env.t, level, expr) => 
-    switch (expr) {
+    switch (expr.pexpr_desc) {
     | ELit(lit) => (type_const_of_literal(lit), env)
     | EVar(path, name) => {
-        let typ = try (instantiate(env.new_var, level, Env.lookup(env, path, name))) {
+        let typ = try (instantiate(env.new_var, level, Env.lookup(env, path, name, expr.pexpr_loc))) {
           | Not_found => raise(TypeError([%string "variable %{name}"]))
         };
         (typ, env)
       }
     | EFun(param_pat, body_expr) => {
-        let rec bind_pat_param = (p) => switch (p) {
+        let rec bind_pat_param = (pat) => 
+          switch (pat.ppat_desc) {
           | PAny => [("", env.new_var(level))]
           | PVar(name) =>  [(name, env.new_var(level))]
           | PLit(lit) => [("", type_const_of_literal(lit))]
           | PTuple(lpat) => 
             List.fold_left((acc, pat) => acc @ bind_pat_param(pat), [], lpat);
-        };
+          };
+        
         let names_typs = bind_pat_param(param_pat);
         let param_typ = names_typs |> fun
           | [] => TConst("unit")

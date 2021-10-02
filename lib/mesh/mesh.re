@@ -1,4 +1,5 @@
 module Syntax = Syntax;
+module Syntax_util = Syntax_util;
 module Infer = Infer;
 module Eval = Eval;
 
@@ -26,7 +27,7 @@ let parse_file = (source) => {
 let string_of_ast = (source) =>
   parse_file(source)
   |> fun
-    | Ok(ast) => List.map(Syntax.string_of_expr(0), ast) |> String.concat("\n")
+    | Ok(ast) => List.map(Syntax_util.string_of_expr, ast) |> String.concat("\n")
     | Error(`Msg(msg) ) => msg
   ;
 

@@ -1,5 +1,7 @@
 open Rresult;
+
 open Syntax;
+open Syntax_util;
 
 exception TypeError(string);
 
@@ -82,20 +84,20 @@ module Env = {
     }
     , env.tvars, path)  |> (mod_ns) => [(name, typ), ...mod_ns]
   };
-  let lookup = (env, path, name) =>
-  // Attempt to find module namespace based on [path]
-  List.fold_left((acc, modname) => 
-    switch (List.assoc_opt(modname, acc)) {
-    | Some(TMod(tenv)) => tenv
-    | Some(_)         => raise(TypeError([%string "%{modname} is not a module!"]))
-    | None            => raise(TypeError([%string "Unbound module %{modname}"]))
-    }
-  , env.tvars, path)  |> (mod_ns) =>
-  // Attempt to find [name] in module namespace
-  switch (List.assoc_opt(name, mod_ns)) {
-  | Some(t) => t
-  | None    => raise(TypeError([%string "Unbound value %{string_of_expr 0 (EVar(path, name))}"]))
-  }; 
+  let lookup = (env, path, name, loc) =>
+    // Attempt to find module namespace based on [path]
+    List.fold_left((acc, modname) => 
+      switch (List.assoc_opt(modname, acc)) {
+      | Some(TMod(tenv)) => tenv
+      | Some(_)         => raise(TypeError([%string "%{modname} is not a module!"]))
+      | None            => raise(TypeError([%string "Unbound module %{modname}"]))
+      }
+    , env.tvars, path)  |> (mod_ns) =>
+    // Attempt to find [name] in module namespace
+    switch (List.assoc_opt(name, mod_ns)) {
+    | Some(t) => t
+    | None    => raise(TypeError([%string "Unbound value %{string_of_expr (mk_expr ~loc (EVar(path, name)))}"]))
+    }; 
 
   let next_id = (env) => {
     let id = env.current_id;
@@ -235,14 +237,15 @@ let type_const_of_literal = fun
 ; 
 
 
-let rec bind_pat_typ = (pat, typ) => switch (pat, typ) {
+let rec bind_pat_typ = (pat, typ) => 
+  switch (pat.ppat_desc, typ) {
   | (PAny, _) => []
   | (PVar(name), e) => [(name, e)]
   | (PLit(_), _) => []
   | (PTuple(lpat), TTuple(lt)) => 
     List.fold_left2((acc, pat, e) => acc @ bind_pat_typ(pat, e), [], lpat, lt)
   | _ => raise(TypeError("Cannot destructure pattern"))
-};
+  };
 
 
 let rec infer_exn = (env, level, exprs, typs) => {
@@ -257,22 +260,24 @@ let rec infer_exn = (env, level, exprs, typs) => {
   let inherit_id = (env1: Env.t, env2: Env.t) => {...env2, current_id: env1.current_id};
 
   let rec f = (env, level, expr) => 
-    switch (expr) {
+    switch (expr.pexpr_desc) {
     | ELit(lit) => (type_const_of_literal(lit), env)
     | EVar(path, name) => {
-        let (typ, new_env) = try (instantiate(env, level, Env.lookup(env, path, name))) {
+        let (typ, new_env) = try (instantiate(env, level, Env.lookup(env, path, name, expr.pexpr_loc))) {
           | Not_found => raise(TypeError([%string "variable %{name}"]))
         };
         (typ, inherit_id(new_env, env))
       }
-    | EFun(param_pat, body_expr) => {
-        let rec bind_pat_param = (p) => switch (p) {
+    | EFun(param_pat, body_expr) =>
+        let rec bind_pat_param = (pat) => 
+          switch (pat.ppat_desc) {
           | PAny => [("", new_var(env, level))]
           | PVar(name) =>  [(name, new_var(env, level))]
           | PLit(lit) => [("", type_const_of_literal(lit))]
           | PTuple(lpat) => 
             List.fold_left((acc, pat) => acc @ bind_pat_param(pat), [], lpat);
-        };
+          };
+        
         let names_typs = bind_pat_param(param_pat);
         let param_typ = names_typs |> fun
           | [] => TConst("unit")
@@ -285,22 +290,22 @@ let rec infer_exn = (env, level, exprs, typs) => {
         let fn_env = update_env(env, [],names_typs);
         let (return_typ,new_env) = f(fn_env, level, body_expr);
         (TFun(param_typ, return_typ), inherit_id(new_env, env));
-      }
-    | ELet(pattern, expr) => {
+
+    | ELet(pattern, expr) => 
         let (gen_typ, new_env) = f(env, level + 1, expr) 
         |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
         let names_typs = bind_pat_typ(pattern, gen_typ);
         let new_env2 = update_env(inherit_id(new_env, env), [],names_typs);
         (TConst("unit"), new_env2);
-      }
-    | EApp(fn_expr, param_expr) => {
+      
+    | EApp(fn_expr, param_expr) => 
         let (fn_typ, new_env) = f(env, level, fn_expr);
         let (param_typ, return_typ) = match_fun_typ(inherit_id(new_env,env), fn_typ);
         let (param_typ1, new_env1) = f(inherit_id(new_env,env), level, param_expr);
         unify(param_typ, param_typ1);
         (return_typ, inherit_id(new_env1,env));
-      }
-    | EList(l) => {
+      
+    | EList(l) => 
         let (list_typ, new_env1) = infer_exn(env, level, l, []) 
         |> ((typs, new_env)) => switch (typs) {
           | [] => (TList(new_var(new_env, level)), new_env)
@@ -312,7 +317,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
             (TList(first), new_env);
         };
         (list_typ, inherit_id(new_env1, env));
-      }
+      
     | ETuple(l) => {
         let (tuple_typs, new_env) = infer_exn(env, level, l, []);
         (TTuple(tuple_typs), inherit_id(new_env, env));

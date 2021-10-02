@@ -1,22 +1,29 @@
-open Syntax
+open Syntax;
+open Syntax_util;
 
-exception InvalidPattern(string);
-exception ParsingError(string);
+exception Invalid_pattern(string);
+exception Parsing_error(string);
+
+let mklocation = (loc_start, loc_end) => Location.{
+  loc_start: loc_start,
+  loc_end: loc_end,
+  loc_ghost: false
+};
 
 /** [pattern_of_expr(e)] returns a pattern [p] that matches the expression. 
     Used to convert "tuples" to function argument patterns. Raises 
     [InvalidPattern] if the epxression does not have a pattern equivalent. */
-let rec pattern_of_expr = fun
-  | ELit(lit)      => PLit(lit)
-  | EVar(_, name)  => PVar(name)
-  | ETuple(exprs)  => PTuple(List.map(pattern_of_expr, exprs))
-  | e              => raise(InvalidPattern(string_of_expr(0, e)))
-;
+// let rec pattern_of_expr = fun
+//   | ELit(lit)      => PLit(lit)
+//   | EVar(_, name)  => PVar(name)
+//   | ETuple(exprs)  => PTuple(List.map(pattern_of_expr, exprs))
+//   | e              => raise(InvalidPattern(string_of_expr(0, e)))
+// ;
 
-let fmt_fun_pattern = fun
-  | ETuple(l)   => List.map(pattern_of_expr, l)
-  | e           => [pattern_of_expr(e)]
-;
+// let fmt_fun_pattern = fun
+//   | ETuple(l)   => List.map(pattern_of_expr, l)
+//   | e           => [pattern_of_expr(e)]
+// ;
 
 /** [fold_fun(body, args)] returns a new expression [e = EFun(...)] containing
     nested functions (one for each argument). [body] is a value of type {expr}
@@ -30,7 +37,7 @@ let fmt_fun_pattern = fun
       (EFun PVar b =>
         e)) */
 let fold_fun = (body, args) => 
-  List.fold_right((arg, acc) => EFun(arg, acc), args, body);
+  List.fold_right((arg, acc) => mk_expr(EFun(arg, acc)), args, body);
 
 /** [fold_app(e, args)] returns a new expression [e' = EApp(...)] containing
     nested function applications [EApp] (one for each argument). [e] is a 
@@ -45,7 +52,7 @@ let fold_fun = (body, args) =>
       (EApp (EVar f) (EVar a))
     (EVar b)) */
 let fold_app = (e, args) =>
-  List.fold_left((acc, arg) => EApp(acc, arg), e, args);
+  List.fold_left((acc, arg) => mk_expr(EApp(acc, arg)), e, args);
 
 /** [fold_cons(ele, e)] returns a nested {expr} containing nested calls to the 
     [cons] Mesh function (one call for each of the {expr} in [ele]) with the 
@@ -54,28 +61,29 @@ let fold_app = (e, args) =>
     TODO: Add example
     TODO: Change `EVar([], "cons")` to `EVar(["List"], "cons")` once stdlib 
     and `List` module are implemented. */
-let fold_cons = (ele, e) =>
-  List.fold_right((ele, acc) => EApp(EApp(EVar([], "cons"), ele), acc), ele, e);
+let fold_cons = (ele, e, loc) =>
+  List.fold_right((ele, acc) => mk_expr(~loc, EApp(mk_expr(EApp(mk_expr(EVar([], "cons")), ele)), acc)), ele, e);
 
 /** [fmt_tuple(elements)] returns an [ETuple] expression containing the list 
     of {expr} [elements] if there are at least two expressions, otherwise the
     single expression of [elements] is returned. */
-let fmt_tuple = (ele) => 
+let fmt_tuple = (ele, loc) => 
   switch (ele) {
   | [expr] => expr
-  | _ => ETuple(ele)
+  | _ => mk_expr(~loc, ETuple(ele))
   };
 
 
-let fmt_value_path = (var, modname) =>
-  switch (var) {
-  | EVar(path, name) => EVar([modname, ...path], name)
-  | _                => raise(ParsingError("fmt_value_path: value is not EVar"))
+let fmt_value_path = (expr, modname, loc) =>
+  switch (expr.pexpr_desc) {
+  | EVar(path, name) => mk_expr(~loc, EVar([modname, ...path], name))
+  | _                => raise(Parsing_error("fmt_value_path: value is not EVar"))
   };
 
 let fmt_module_path = (mpath) =>
   switch (List.rev(mpath)) {
-  | [modname]           => EOpen([], modname)
-  | [modname, ...mpath] => EOpen(mpath, modname)
-  | []                  => raise(ParsingError("fmt_module_path: empty module path"))
+  | [(modname, loc)]           => mk_expr(~loc, EOpen([], modname))
+  // TODO: Include loc data in EOpen path
+  | [(modname, loc), ...mpath] => mk_expr(~loc, EOpen(List.map(fst, mpath), modname))
+  | []                  => raise(Parsing_error("fmt_module_path: empty module path"))
   }

@@ -14,7 +14,7 @@ let string  = (alpha|digit|'_')*
 let var     = ['a'-'z'] string 
 let mod     = ['A'-'Z'] string
 
-let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@')+
+let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@' | '~')+
 
 let white   = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"

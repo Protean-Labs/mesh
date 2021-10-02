@@ -31,6 +31,7 @@
 %token LBRACE RBRACE
 %token COMMA
 %token DOT
+// %token BANG
 
 %token UNDERSCORE
 %token EQUALS
@@ -78,8 +79,10 @@ file:
   | e = expr SEMICOLON rest = file                          { e :: rest }
 
 expr:
+  | e = op_bind                                             { e }
   | LET p = simple_pattern EQUALS e = expr                  
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, e)) }
+
   
   | EXTERNAL p = simple_pattern EQUALS v = STRING           
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, primitive_of_name v)) }
@@ -104,6 +107,12 @@ expr:
   
   | ES6_FUN p = simple_pattern ARROW e = fun_body           
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (p, e)) }
+
+op_bind:
+  | LET LPAREN op = OPERATOR RPAREN EQUALS e = expr
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (mk_pvar op, e)) }
+  | LET LPAREN DOT op = OPERATOR RPAREN EQUALS e = expr
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (mk_pvar op, e)) }
 
 fun_def:
   | UNIT ARROW e = fun_body                                           

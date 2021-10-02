@@ -71,6 +71,15 @@ let test_cases = [
   ("external f = \"float_div\";
     f(4., 2.);",                            [VFloat(2.)]),
 
+  // Operator binding
+  ("external add = \"int_add\";
+    let (+) = add;
+    1 + 2;",                                [VInt(3)]),
+  ("external add = \"int_add\";
+    let (.++) = add(1);
+    ++2;",                                  [VInt(3)]),
+
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 

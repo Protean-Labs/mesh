@@ -72,3 +72,6 @@ let fmt_value_path = (var, modname) =>
   | EVar(path, name) => EVar([modname, ...path], name)
   | _                => raise(ParsingError("fmt_value_path: value is not EVar"))
   };
+
+let fold_record = (base, fields) =>
+  List.fold_left((acc, (name, expr)) => ERecExtend(name, expr, acc), base, fields);

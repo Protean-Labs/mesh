@@ -10,7 +10,7 @@ let parse_file = (source) => {
 
   // NOTE: Alternative lexer token supplier that prints each token that is being parsed.
   // Useful for debugging
-  // let verbose_supplier = () => 
+  // let supplier = () => 
   //   Mesh_lexer.token(lexer)                         |> ((tok, _, _) as token) =>
   //   print_endline(Mesh_lexer.string_of_token(tok))  |> () => 
   //   token;

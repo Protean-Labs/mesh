@@ -83,30 +83,30 @@ let dspace_repeat = string_repeat("  ");
 let rec string_of_expr = (level, e) =>
   dspace_repeat(level)  |> (indent) =>
   switch (e) {
-  | ELit(lit)           => [%string "%{indent}(ELit %{string_of_literal lit})"]
-  | EVar([], name)      => [%string "%{indent}(EVar %{name})"]
-  | EVar(path, name)    => 
+  | ELit(lit)                 => [%string "%{indent}(ELit %{string_of_literal lit})"]
+  | EVar([], name)            => [%string "%{indent}(EVar %{name})"]
+  | EVar(path, name)          => 
     String.concat(".", path)  |> (path) =>
     [%string "%{indent}(EVar %{path}.%{name})"]
-  | EList([])           => [%string "%{indent}(EList [])"]
-  | EList(l)            => 
+  | EList([])                 => [%string "%{indent}(EList [])"]
+  | EList(l)                  => 
     List.map((ele) => string_of_expr(level + 1, ele), l) |> String.concat("\n") |> (elements) =>
     [%string "%{indent}(EList \n%{elements})"]
-  | ETuple([])          => [%string "%{indent}(ETuple ())"] 
-  | ETuple(l)           => 
+  | ETuple([])                => [%string "%{indent}(ETuple ())"] 
+  | ETuple(l)                 => 
     List.map((ele) => string_of_expr(level + 1, ele), l) |> String.concat("\n") |> (elements) =>
     [%string "%{indent}(ETuple \n%{elements})"]
-  | EApp(e1, e2)        => [%string "%{indent}(EApp %{string_of_expr 0 e1}\n%{string_of_expr (level + 1) e2})"]
-  | EFun(pat, e)        => [%string "%{indent}(EFun %{string_of_pattern pat} =>\n%{string_of_expr (level + 1) e})"]
-  | ELet(pat, e)        => [%string "%{indent}(ELet %{string_of_pattern pat} =\n%{string_of_expr (level + 1) e})"]
-  | ERecSelect(_, name) => name
-  | ERecExtend(_)       => "rec extend"
-  | ERecEmpty           => "{}"
-  | ESeq(e, rest)       => [%string "%{indent}(ESeq \n%{string_of_expr (level + 1) e}\n%{string_of_expr (level + 1) rest})"]
-  | EMod(name, body)    => 
+  | EApp(e1, e2)              => [%string "%{indent}(EApp %{string_of_expr 0 e1}\n%{string_of_expr (level + 1) e2})"]
+  | EFun(pat, e)              => [%string "%{indent}(EFun %{string_of_pattern pat} =>\n%{string_of_expr (level + 1) e})"]
+  | ELet(pat, e)              => [%string "%{indent}(ELet %{string_of_pattern pat} =\n%{string_of_expr (level + 1) e})"]
+  | ERecSelect(e, name)       => [%string "%{indent}(ERecSelect %{string_of_expr 0 e} %{name})"]
+  | ERecExtend(name, e1, e2)  => [%string "%{indent}(ERecExtend %{name}\n%{string_of_expr (level + 1) e1}\n%{string_of_expr (level + 1) e2})"]
+  | ERecEmpty                 => [%string "%{indent}ERecEmpty"]
+  | ESeq(e, rest)             => [%string "%{indent}(ESeq \n%{string_of_expr (level + 1) e}\n%{string_of_expr (level + 1) rest})"]
+  | EMod(name, body)          => 
     List.map((ele) => string_of_expr(level + 1, ele), body) |> String.concat("\n") |> (elements) =>    
     [%string "%{indent}(EMod %{name}\n%{elements})"]
-  | EPrim(prim)         => string_of_primitive(level, prim)
+  | EPrim(prim)               => string_of_primitive(level, prim)
   }
 and string_of_primitive = (level, prim) =>
   dspace_repeat(level)  |> (indent) =>

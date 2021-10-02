@@ -120,6 +120,17 @@ let test_cases = [
   // External functions
   ("external f = \"int_add\";",                     ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(var("a"), var("b"))))))),
 
+  // Records
+  ("{a: 1, b: 2};",                                 ERecExtend("b", int_lit(2), ERecExtend("a", int_lit(1), ERecEmpty))),
+  ("{...x, a: 1, b: 2};",                           ERecExtend("b", int_lit(2), ERecExtend("a", int_lit(1), var("x")))),
+
+  ("let r = {a: 1, b: 2};",                         ELet(PVar("r"), ERecExtend("b", int_lit(2), ERecExtend("a", int_lit(1), ERecEmpty)))),
+  ("let r = {...x, a: 1, b: 2};",                   ELet(PVar("r"), ERecExtend("b", int_lit(2), ERecExtend("a", int_lit(1), var("x"))))),
+
+  ("let f = (x) => {a: x, b: 2};",                  ELet(PVar("f"), EFun(PVar("x"), ERecExtend("b", int_lit(2), ERecExtend("a", var("x"), ERecEmpty))))),
+  ("let f = (x) => {...x, a: 1, b: 2};",            ELet(PVar("f"), EFun(PVar("x"), ERecExtend("b", int_lit(2), ERecExtend("a", int_lit(1), var("x")))))),
+
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

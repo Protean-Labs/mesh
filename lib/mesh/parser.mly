@@ -20,6 +20,7 @@
 %token MODULE
 %token ES6_FUN
 %token EXTERNAL
+%token OPEN
 
 %token SEMICOLON
 %token COLON
@@ -75,6 +76,7 @@ file:
   | e = expr SEMICOLON rest = file                          { e :: rest }
 
 expr:
+  | OPEN mpath = module_path                                { fmt_module_path mpath }
   | LET p = simple_pattern EQUALS e = expr                  { ELet (p, e) }
   | EXTERNAL p = simple_pattern EQUALS v = STRING           { ELet (p, primitive_of_name v) }
   | e = fun_def                                             { e }
@@ -136,6 +138,11 @@ literal:
 value_path:
   | varname = VAR                                                   { EVar ([], varname) }
   | modname = MOD DOT vpath = value_path                            { fmt_value_path vpath modname }
+
+module_path:
+  | modname = MOD                                                   { [modname] }
+  | modname = MOD DOT mpath = module_path                           { modname :: mpath }
+
 
 // ================================================================
 // Modules

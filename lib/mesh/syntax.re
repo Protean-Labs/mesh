@@ -51,6 +51,7 @@ type expr =
   | ELet(pattern, expr)
   | ESeq(expr, expr)
   | EMod(name, list(expr))
+  | EOpen(list(name), name)
   | EPrim(primitive)
 and primitive =
   | PListCons(expr, expr)
@@ -100,6 +101,10 @@ let rec string_of_expr = (level, e) =>
   | EMod(name, body)    => 
     List.map((ele) => string_of_expr(level + 1, ele), body) |> String.concat("\n") |> (elements) =>    
     [%string "%{indent}(EMod %{name}\n%{elements})"]
+  | EOpen([], name)      => [%string "%{indent}(EOpen %{name})"]
+  | EOpen(path, name)    => 
+    String.concat(".", path)  |> (path) =>
+    [%string "%{indent}(EOpen %{path}.%{name})"]
   | EPrim(prim)         => string_of_primitive(level, prim)
   }
 and string_of_primitive = (level, prim) =>

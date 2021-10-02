@@ -72,3 +72,10 @@ let fmt_value_path = (var, modname) =>
   | EVar(path, name) => EVar([modname, ...path], name)
   | _                => raise(ParsingError("fmt_value_path: value is not EVar"))
   };
+
+let fmt_module_path = (mpath) =>
+  switch (List.rev(mpath)) {
+  | [modname]           => EOpen([], modname)
+  | [modname, ...mpath] => EOpen(mpath, modname)
+  | []                  => raise(ParsingError("fmt_module_path: empty module path"))
+  }

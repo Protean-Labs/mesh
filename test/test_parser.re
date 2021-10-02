@@ -116,6 +116,8 @@ let test_cases = [
     };",                                            EMod("M", [ELet(PVar("x"), int_lit(2))])),
   ("M.x;",                                          EVar(["M"], "x")),
   ("M1.M2.x;",                                      EVar(["M1", "M2"], "x")),
+  ("open M;",                                       EOpen([], "M")),
+  ("open M1.M2;",                                   EOpen(["M1"], "M2")),
   
   // External functions
   ("external f = \"int_add\";",                     ELet(PVar("f"), EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(var("a"), var("b"))))))),

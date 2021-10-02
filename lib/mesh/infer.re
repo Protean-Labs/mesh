@@ -325,7 +325,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
     | EMod(name, exprs) => 
       let (_, mod_env) = infer_exn(inherit_id(env, Env.empty), level, exprs, []);
       (TConst("unit"), Env.extend(inherit_id(mod_env, env), [], name, TMod(mod_env.tvars)))
-
+    | EOpen(_) => raise(TypeError("EOpen: Not implemented"))
     }
     and typ_of_primitive = (prim, env) => switch (prim) {
       | PListCons(el_expr, list_expr) =>

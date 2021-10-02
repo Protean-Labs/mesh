@@ -82,69 +82,75 @@ let rec bind_pat_value = (pat, v) =>
 
 /** [eval_exn(ret, env, e)] 
 
-  [eval_exn] is made up of two subfunctions: [eval_non_let] and [eval_let].
+  [eval_exn] is made up of two subfunctions: [eval_value] and [eval_env].
   [ELet] {expr} values update the environment and evaluate to [unit]. All the 
   other {expr} values evaluate to some value and do not change the environment.
   Although it would be possible to have only one recursive function, breaking it 
-  into two makes it more manageable in terms of return values (i.e.: [eval_non_let]
-  returns a value whereas [eval_let] returns an updated environment).
+  into two makes it more manageable in terms of return values (i.e.: [eval_value]
+  returns a value whereas [eval_env] returns an updated environment).
 
   TODO: Refactor into single elegant function.
 */
 let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
-  let rec eval_non_let = (env, e) => 
+  let rec eval_value = (env, e) => 
     switch (e) {
     | ELit(lit)           => value_of_lit(lit)
     | EVar(path, varname) => value_of_var(env, path, varname)
-    | EList(l)            => VList(List.map(eval_non_let(env), l))
-    | ETuple(t)           => VTuple(List.map(eval_non_let(env), t))
+    | EList(l)            => VList(List.map(eval_value(env), l))
+    | ETuple(t)           => VTuple(List.map(eval_value(env), t))
     | EApp(e_fun, e_arg)  => 
-      switch (eval_non_let(env, e_fun), eval_non_let(env, e_arg)) {
-      | (VClosure(env', EFun(pat, e)), argv)  => eval_non_let(bind_pat_value(pat, argv) @ env', e)
+      switch (eval_value(env, e_fun), eval_value(env, e_arg)) {
+      | (VClosure(env', EFun(pat, e)), argv)  => eval_value(bind_pat_value(pat, argv) @ env', e)
       | _                                     => raise(Runtime_error("EApp: LHS is not a function!"))
       };
     | EFun(_, _) as e     => VClosure(env, e)
     | ELet(_)             => raise(Runtime_error("Unexpected ELet in eval_nonlet"))
     | EMod(_)             => raise(Runtime_error("Unexpected EMod in eval_nonlet"))
+    | EOpen(_)            => raise(Runtime_error("Unexpected EOpen in eval_nonlet"))
     | ESeq(e, rest)       => 
       switch (e) {
       | ELet(pat, e) => 
-        eval_non_let(env, e)              |> (value) =>
+        eval_value(env, e)              |> (value) =>
         bind_pat_value(pat, value) @ env  |> (env') =>
-        eval_non_let(env', rest)
+        eval_value(env', rest)
       | e => 
-        eval_non_let(env, e) |> (_) => eval_non_let(env, rest)
+        eval_value(env, e) |> (_) => eval_value(env, rest)
       }
     | EPrim(prim) => eval_prim(env, prim)
     }
   and eval_prim = (env, prim) =>
     switch (prim) {
-    | PListCons(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (v, VList(l)) => VList([v, ...l]) | _ => raise(Runtime_error([%string "PListCons: Unexpected types"]))}
-    | PIntAdd(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a + b) | _ => raise(Runtime_error([%string "PIntAdd: Unexpected types"]))}
-    | PIntSub(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a - b) | _ => raise(Runtime_error([%string "PIntSub: Unexpected types"]))}
-    | PIntMul(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a * b) | _ => raise(Runtime_error([%string "PIntMul: Unexpected types"]))}
-    | PIntDiv(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a / b) | _ => raise(Runtime_error([%string "PIntDiv: Unexpected types"]))}
-    | PFloatAdd(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a +. b) | _ => raise(Runtime_error([%string "PFloatAdd: Unexpected types"]))}
-    | PFloatSub(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a -. b) | _ => raise(Runtime_error([%string "PFloatSub: Unexpected types"]))}
-    | PFloatMul(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a *. b) | _ => raise(Runtime_error([%string "PFloatMul: Unexpected types"]))}
-    | PFloatDiv(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a /. b) | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
+    | PListCons(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (v, VList(l)) => VList([v, ...l]) | _ => raise(Runtime_error([%string "PListCons: Unexpected types"]))}
+    | PIntAdd(e1, e2)     => switch (eval_value(env, e1), eval_value(env, e2)) { | (VInt(a), VInt(b)) => VInt(a + b) | _ => raise(Runtime_error([%string "PIntAdd: Unexpected types"]))}
+    | PIntSub(e1, e2)     => switch (eval_value(env, e1), eval_value(env, e2)) { | (VInt(a), VInt(b)) => VInt(a - b) | _ => raise(Runtime_error([%string "PIntSub: Unexpected types"]))}
+    | PIntMul(e1, e2)     => switch (eval_value(env, e1), eval_value(env, e2)) { | (VInt(a), VInt(b)) => VInt(a * b) | _ => raise(Runtime_error([%string "PIntMul: Unexpected types"]))}
+    | PIntDiv(e1, e2)     => switch (eval_value(env, e1), eval_value(env, e2)) { | (VInt(a), VInt(b)) => VInt(a / b) | _ => raise(Runtime_error([%string "PIntDiv: Unexpected types"]))}
+    | PFloatAdd(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a +. b) | _ => raise(Runtime_error([%string "PFloatAdd: Unexpected types"]))}
+    | PFloatSub(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a -. b) | _ => raise(Runtime_error([%string "PFloatSub: Unexpected types"]))}
+    | PFloatMul(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a *. b) | _ => raise(Runtime_error([%string "PFloatMul: Unexpected types"]))}
+    | PFloatDiv(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a /. b) | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
     };
 
-  let eval_let = (env, e) =>
+  let eval_env = (env, e) =>
     switch (e) {
     | ELet(pat, e) => 
-      eval_non_let(env, e)              |> (value) =>
+      eval_value(env, e)              |> (value) =>
       bind_pat_value(pat, value) @ env
     | EMod(name, body)    => 
       eval_exn([], env, body) |> ((_, mod_env)) =>
       [(name, VMod(mod_env)), ...env]
-    | _            => raise(Runtime_error("Unexpected expr in eval_let"))
+    | EOpen(path, modname) =>
+      switch (value_of_var(env, path, modname)) {
+      | VMod(env') => env' @ env
+      | _ => raise(Runtime_error([%string "open %{modname}: %{modname} is not a module!"]))
+      }
+    | _            => raise(Runtime_error("Unexpected expr in eval_env"))
     };
 
   switch (e) {
-  | [ELet(_) as e, ...rest]
-  | [EMod(_) as e, ...rest] => eval_let(env, e)     |> (env') => eval_exn(ret, env', rest)
-  | [e, ...rest]            => eval_non_let(env, e) |> (value) => eval_exn([value, ...ret], env, rest)
+  | [(ELet(_) | EMod(_) | EOpen(_)) as e, ...rest] => 
+    eval_env(env, e)     |> (env') => eval_exn(ret, env', rest)
+  | [e, ...rest]            => eval_value(env, e) |> (value) => eval_exn([value, ...ret], env, rest)
   | []                      => (List.rev(ret), env)
   };
 };

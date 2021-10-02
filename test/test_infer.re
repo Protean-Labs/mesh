@@ -129,6 +129,27 @@ let test_cases = [
     let f2 = M.f(1);
     f2(\"hello\");",
     [TConst("unit"), TConst("unit"), TConst("int")]
+  ),
+  (
+    "let x = {a:1, b:\"hello\"}; x;",
+    [TConst("unit"), TRec((TRowExtend("b", TConst("string"), TRowExtend("a", TConst("int"), TRowEmpty))))]
+  ),
+  (
+    "let x = {a:1, b:\"hello\"}; let y = {...x, c:x}; y;",
+    [TConst("unit"), TConst("unit"), 
+      TRec((TRowExtend("c", TRec((
+        TRowExtend("b", TConst("string"), TRowExtend("a", TConst("int"), TRowEmpty))
+      )), TRowExtend("b", TConst("string"), TRowExtend("a", TConst("int"), TRowEmpty)))))
+    ]
+  ),
+  (
+    "let f = (y) => y;  let x = {a:f(1)}; let y = {b:f(\"hello\")}; (x,y);",
+    [TConst("unit"), TConst("unit"), TConst("unit"),
+      TTuple([
+        TRec((TRowExtend("a", TConst("int"), TRowEmpty))),
+        TRec((TRowExtend("b", TConst("string"), TRowEmpty)))
+      ])
+    ]
   )
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 

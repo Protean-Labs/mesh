@@ -17,6 +17,7 @@
     "@opam/jupyter-kernel": "0.7",
     "@opam/menhir": "20210419",
     "@opam/piaf": "0.1.0",
+    "@opam/menhirLib": "20210419",
     "@opam/ppx_string": "v0.14.1",
     "@opam/reason": "3.7.0",
     "@opam/rresult": "0.6.0",

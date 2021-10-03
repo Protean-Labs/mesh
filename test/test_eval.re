@@ -38,6 +38,19 @@ let test_cases = [
     first((0, 1));
     first((\"hello\", 10));",               [VInt(0), VString("hello")]),
 
+
+  // Modules
+  ("module M = {
+      let x = 2;
+    };
+    M.x;",                                  [VInt(2)]),
+  ("module M = {
+      let x = 2;
+      let y = 5;
+      let f = (a, b) => b;
+    };
+    M.f(M.x, \"hello\");",                  [VString("hello")]),
+    
   // External functions
   ("external f = \"list_cons\";
     f(1, [2, 3]);",                         [VList([VInt(1), VInt(2), VInt(3)])]),
@@ -69,7 +82,7 @@ let pp_value = (values) =>
   };
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Mesh.parse_file(mesh_src) >>= Mesh.Eval.eval);
+  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Mesh.parse_file(mesh_src) >>= Mesh.Eval.eval >>| fst);
 
 let suite = 
   "test_eval" >::: List.map(make_single_test, test_cases);

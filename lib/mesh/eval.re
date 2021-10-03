@@ -1,6 +1,7 @@
 open Rresult;
 
 open Syntax;
+open Syntax_util;
 
 exception Runtime_error(string);
 
@@ -13,7 +14,8 @@ and value =
   | VUnit
   | VList(list(value))
   | VTuple(list(value))
-  | VClosure(environment, expr)
+  | VClosure(environment, expr_desc)
+  | VMod(environment)
 ;
 
 let value_of_lit = fun
@@ -39,7 +41,25 @@ let rec string_of_value = fun
     List.map((ele) => string_of_value(ele), l) |> String.concat(", ") |> (elements) =>
     [%string "(%{elements})"]
   | VClosure(_)   => "closure"
+  | VMod(env)  => 
+    List.map(((name, ele)) => [%string "  %{name}: %{string_of_value ele}"], env) |> String.concat("\n") |> (elements) =>
+    [%string "{\n%{elements}\n}"]
 ;
+
+let value_of_var = (env, path, name, loc) =>
+  // Attempt to find module namespace based on [path]
+  List.fold_left((acc, modname) => 
+    switch (List.assoc_opt(modname, acc)) {
+    | Some(VMod(env)) => env
+    | Some(_)         => raise(Runtime_error([%string "%{modname} is not a module!"]))
+    | None            => raise(Runtime_error([%string "Unbound module %{modname}"]))
+    }
+  , env, path)  |> (mod_ns) =>
+  // Attempt to find [name] in module namespace
+  switch (List.assoc_opt(name, mod_ns)) {
+  | Some(v) => v
+  | None    => raise(Runtime_error([%string "Unbound value %{string_of_expr ~print_loc:true (mk_expr ~loc (EVar(path, name)))}"]))
+  }; 
 
 /** [bind_pat_value(pat, v)] returns a list of tuples of type [(name, value)] containing 
     the bindings to be added to the environment where each variable in the {pattern} [pat] 
@@ -51,7 +71,7 @@ let rec string_of_value = fun
     the {value} [v = VTuple([VInt(0), VInt(1)])]. Calling [bind_pat_value(pat, v)] would return
     [[("a", VInt(0)), ("b", VInt(1))]]. */
 let rec bind_pat_value = (pat, v) =>
-  switch (pat, v) {
+  switch (pat.ppat_desc, v) {
   | (PAny, _)                       => []
   | (PVar(name), v)                 => [(name, v)]
   | (PLit(lit), v)                  => 
@@ -73,10 +93,10 @@ let rec bind_pat_value = (pat, v) =>
   TODO: Refactor into single elegant function.
 */
 let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
-  let rec eval_non_let = (env, e) => 
-    switch (e) {
+  let rec eval_non_let = (env, expr) => 
+    switch (expr.pexpr_desc) {
     | ELit(lit)           => value_of_lit(lit)
-    | EVar(varname)       => List.assoc(varname, env)
+    | EVar(path, varname) => value_of_var(env, path, varname, expr.pexpr_loc)
     | EList(l)            => VList(List.map(eval_non_let(env), l))
     | ETuple(t)           => VTuple(List.map(eval_non_let(env), t))
     | EApp(e_fun, e_arg)  => 
@@ -86,9 +106,10 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
       };
     | EFun(_, _) as e     => VClosure(env, e)
     | ELet(_)             => raise(Runtime_error("Unexpected ELet in eval_nonlet"))
+    | EMod(_)             => raise(Runtime_error("Unexpected EMod in eval_nonlet"))
     | ESeq(e, rest)       => 
       switch (e) {
-      | ELet(pat, e) => 
+      | {pexpr_desc: ELet(pat, e), _} => 
         eval_non_let(env, e)              |> (value) =>
         bind_pat_value(pat, value) @ env  |> (env') =>
         eval_non_let(env', rest)
@@ -110,18 +131,22 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
     | PFloatDiv(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a /. b) | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
     };
 
-  let eval_let = (env, e) =>
-    switch (e) {
+  let eval_let = (env, expr) =>
+    switch (expr.pexpr_desc) {
     | ELet(pat, e) => 
       eval_non_let(env, e)              |> (value) =>
       bind_pat_value(pat, value) @ env
+    | EMod(name, body)    => 
+      eval_exn([], env, body) |> ((_, mod_env)) =>
+      [(name, VMod(mod_env)), ...env]
     | _            => raise(Runtime_error("Unexpected expr in eval_let"))
     };
 
   switch (e) {
-  | [ELet(_) as e, ...rest] => eval_let(env, e)     |> (env') => eval_exn(ret, env', rest)
-  | [e, ...rest]            => eval_non_let(env, e) |> (value) => eval_exn([value, ...ret], env, rest)
-  | []                      => List.rev(ret)
+  | [{pexpr_desc: ELet(_), _} as e, ...rest]
+  | [{pexpr_desc: EMod(_), _} as e, ...rest]  => eval_let(env, e)     |> (env') => eval_exn(ret, env', rest)
+  | [e, ...rest]                              => eval_non_let(env, e) |> (value) => eval_exn([value, ...ret], env, rest)
+  | []                                        => (List.rev(ret), env)
   };
 };
 

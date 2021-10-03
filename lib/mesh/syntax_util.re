@@ -67,7 +67,9 @@ let rec string_of_expr = (~level=0, ~print_loc=false, expr) =>
   | EApp(e1, e2)        => [%string "%{indent}(EApp %{maybe_print_loc print_loc expr} %{string_of_expr ~print_loc e1}\n%{string_of_expr ~level:(level + 1) ~print_loc e2})"]
   | EFun(pat, e)        => [%string "%{indent}(EFun %{maybe_print_loc print_loc expr} %{string_of_pattern pat} =>\n%{string_of_expr ~level:(level + 1) ~print_loc e})"]
   | ELet(pat, e)        => [%string "%{indent}(ELet %{maybe_print_loc print_loc expr} %{string_of_pattern pat} =\n%{string_of_expr ~level:(level + 1) ~print_loc e})"]
-  | ESeq(e, rest)       => [%string "%{indent}(ESeq %{maybe_print_loc print_loc expr} \n%{string_of_expr ~level:(level + 1) ~print_loc e}\n%{string_of_expr ~level:(level + 1) ~print_loc rest})"]
+  | ERecSelect(e, name)       => [%string "%{indent}(ERecSelect %{string_of_expr ~print_loc e} %{name})"]
+  | ERecExtend(name, e1, e2)  => [%string "%{indent}(ERecExtend %{name}\n%{string_of_expr ~level:(level + 1) ~print_loc e1}\n%{string_of_expr ~level:(level + 1) ~print_loc e2})"]
+  | ERecEmpty                 => [%string "%{indent}ERecEmpty"]  | ESeq(e, rest)       => [%string "%{indent}(ESeq %{maybe_print_loc print_loc expr} \n%{string_of_expr ~level:(level + 1) ~print_loc e}\n%{string_of_expr ~level:(level + 1) ~print_loc rest})"]
   | EMod(name, body)    => 
     List.map((ele) => string_of_expr(~level=level + 1, ~print_loc, ele), body) |> String.concat("\n") |> (elements) =>    
     [%string "%{indent}(EMod %{maybe_print_loc print_loc expr} %{name}\n%{elements})"]

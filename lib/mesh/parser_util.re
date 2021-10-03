@@ -73,6 +73,8 @@ let fmt_tuple = (ele, loc) =>
   | _ => mk_expr(~loc, ETuple(ele))
   };
 
+let fold_record = (base, fields) =>
+  List.fold_left((acc, (name, expr, loc)) => mk_expr(~loc, ERecExtend(name, expr, acc)), base, fields);
 
 let fmt_value_path = (var, modname, loc) =>
   switch (var.pexpr_desc) {

@@ -117,6 +117,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
         eval_non_let(env, e) |> (_) => eval_non_let(env, rest)
       }
     | EPrim(prim) => eval_prim(env, prim)
+    | _ => raise(Runtime_error("eval not implemented"))
     }
   and eval_prim = (env, prim) =>
     switch (prim) {

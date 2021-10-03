@@ -53,24 +53,6 @@
 %%
 
 // ================================================================
-// Helpers
-// ================================================================
-(* [lseparated_list(separator, X)] is same as [separated_list(separator, X)]
-   except that it allows for trailing [seperator] token. *)
-
-%public %inline lseparated_list(separator, X):
-  xs = loption(lseparated_nonempty_list(separator, X))              { xs }
-
-(* [lseparated_nonempty_list(separator, X)] is same as 
-   [separated_nonempty_list(separator, X)] except that it allows for 
-   trailing [seperator] token. *)
-
-%public lseparated_nonempty_list(separator, X):
-  | x = X                                                           { [ x ] }
-  | x = X separator                                                 { [ x ] }
-  | x = X separator xs = lseparated_nonempty_list(separator, X)     { x :: xs }
-
-// ================================================================
 // Expressions
 // ================================================================
 file:
@@ -98,26 +80,30 @@ expr:
   | e1 = expr op = OPERATOR e2 = expr                       
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EApp (mk_expr (EVar ([], op)), e1)), e2)) }
   
-  | MODULE modname = MOD EQUALS 
+  | MODULE modname = MOD EQUALS
     LBRACE body = structure RBRACE                          
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EMod (modname, body)) }
-  
-  | ES6_FUN p = simple_pattern ARROW e = fun_body           
-    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (p, e)) }
+  | e = braced_expr                                         { e }
 
 fun_def:
-  | UNIT ARROW e = fun_body                                           
+  | UNIT ARROW e = expr                                           
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (mk_pat (PLit Unit), e)) }
-  
+  | ES6_FUN p = simple_pattern ARROW e = expr                     
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (p, e)) }
   | ES6_FUN LPAREN p = separated_nonempty_list(COMMA, simple_pattern) 
-    RPAREN ARROW e = fun_body                                         { fold_fun e p }
+    RPAREN ARROW e = expr                                         
+    { fold_fun e p }
 
-// fun_def:
-//   | ES6_FUN p = simple_pattern ARROW e = fun_body           { EFun (p, e) }
-
-fun_body:
-  | e = expr                                                        { e }
+braced_expr:
   | LBRACE e = seq_expr RBRACE                                      { e }
+  | LBRACE e = record_expr RBRACE                                   { e }
+
+record_expr:
+  | DOTDOTDOT base = expr fields = lnonempty_list(preceded(COMMA, lbl_expr)) COMMA?   { fold_record base fields }
+  | fields = separated_nonempty_list(COMMA, lbl_expr) COMMA?                          { fold_record (mk_expr ERecEmpty) fields }
+
+lbl_expr:
+  | varname = VAR COLON e = expr                                    { (varname, e, (mklocation $symbolstartpos $endpos)) }
 
 fun_app:
   | e = expr UNIT                                                   
@@ -137,7 +123,7 @@ tuple:
     { fmt_tuple t (mklocation $symbolstartpos $endpos) }
 
 e_list:
-  | LBRACK l = lseparated_list(COMMA, expr) DOTDOTDOT e = expr RBRACK  
+  | LBRACK l = lseparated_list(COMMA, expr) COMMA DOTDOTDOT e = expr RBRACK  
     { fold_cons l e (mklocation $symbolstartpos $endpos) }
   
   | LBRACK l = lseparated_list(COMMA, expr) RBRACK                           
@@ -196,3 +182,66 @@ simple_pattern_not_ident:
     { if List.length t == 1 
       then List.hd t 
       else mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PTuple t) }
+
+// ================================================================
+// Helpers
+// ================================================================
+(* [lseparated_list(separator, X)] is same as [separated_list(separator, X)]
+   except that it allows for trailing [seperator] token. *)
+
+// %public %inline lseparated_list(separator, X):
+//   xs = loption(lseparated_nonempty_list(separator, X))              { xs }
+
+(* [lseparated_nonempty_list(separator, X)] is same as 
+   [separated_nonempty_list(separator, X)] except that it allows for 
+   trailing [seperator] token. *)
+
+// %public lseparated_nonempty_list(separator, X):
+//   | x = X                                                           { [ x ] }
+//   | x = X separator                                                 { [ x ] }
+//   | x = X separator xs = lseparated_nonempty_list(separator, X)     { x :: xs }
+
+// %inline as_loc(X): x = X
+//   { mkloc x (mklocation $symbolstartpos $endpos) }
+// ;
+
+either(X,Y):
+  | X { $1 }
+  | Y { $1 }
+;
+
+%inline opt_spread(X):
+  | DOTDOTDOT? X
+    { let dotdotdot = match $1 with
+      | Some _ -> Some (mklocation $startpos($1) $endpos($2))
+      | None -> None
+      in
+      (dotdotdot, $2)
+    }
+  ;
+
+%inline lnonempty_list(X): X llist_aux(X) { $1 :: List.rev $2 };
+
+%inline llist(X): llist_aux(X) { List.rev $1 };
+
+llist_aux(X):
+  | (* empty *) { [] }
+  | llist_aux(X) X { $2 :: $1 }
+;
+
+%inline lseparated_list(sep, X):
+  | (* empty *) { [] }
+  | lseparated_nonempty_list(sep, X) { $1 };
+
+%inline lseparated_nonempty_list(sep, X):
+  lseparated_nonempty_list_aux(sep, X) { List.rev $1 };
+
+lseparated_nonempty_list_aux(sep, X):
+  | X { [$1] }
+  | lseparated_nonempty_list_aux(sep, X) sep X { $3 :: $1 }
+;
+
+%inline lseparated_two_or_more(sep, X):
+  X sep lseparated_nonempty_list(sep, X) { $1 :: $3 };
+
+%inline parenthesized(X): delimited(LPAREN, X, RPAREN) { $1 };

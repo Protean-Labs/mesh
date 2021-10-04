@@ -232,6 +232,7 @@ let token = state => {
 
 let string_of_token = fun
   | UNIT => "UNIT"
+  | EMPTY => "EMPTY"
   | BOOL(_) => [%string "BOOL"]
   | INT(_) => [%string "INT"]
   | FLOAT(_) => [%string "FLOAT"]

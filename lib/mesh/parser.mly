@@ -9,6 +9,7 @@
 
 // Literals
 %token UNIT
+%token EMPTY
 %token <bool>   BOOL
 %token <int>    INT
 %token <float>  FLOAT
@@ -43,6 +44,7 @@
 
 %right EQUALS
 %nonassoc UNIT
+%nonassoc EMPTY
 
 // %start <Syntax.expr> expr
 %start <Syntax.expr list> file
@@ -77,9 +79,7 @@ expr:
   | e = expr DOT field = LIDENT
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ERecSelect (e, field)) }
 
-  | lit = literal                                           
-    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELit lit) }
-
+  | e = eliteral                                            { e }
   | e = braced_expr                                         { e }
   | e = fun_def                                             { e }
   | e = fun_app                                             { e }
@@ -88,12 +88,12 @@ expr:
   | e = tuple                                               { e }
 
 fun_def:
-  | UNIT ARROW e = expr                                           
+  | UNIT ARROW e = expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (mk_pat (PLit Unit), e)) }
-  | ES6_FUN p = simple_pattern ARROW e = expr                     
+  | ES6_FUN p = simple_pattern ARROW e = expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (p, e)) }
   | ES6_FUN LPAREN p = separated_nonempty_list(COMMA, simple_pattern) 
-    RPAREN ARROW e = expr                                         
+    RPAREN ARROW e = expr
     { fold_fun e p }
 
 braced_expr:
@@ -108,10 +108,10 @@ lbl_expr:
   | varname = LIDENT COLON e = expr                                    { (varname, e, (mklocation $symbolstartpos $endpos)) }
 
 fun_app:
-  | e = expr UNIT                                                   
+  | e = expr UNIT
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (e, mk_elit_unit ())) }
-  
-  | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN       { fold_app e args }
+  | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN
+    { fold_app e args }
 
 /** Note: Due to the fact that we are reusing the `tuple` rule for both tuple expressions (i.e.: ETuple)
     as well as for function argument tuple patterns (i.e.: PTuple) we cannot immediately return the ETuple. 
@@ -138,6 +138,12 @@ seq_expr:
 
 seq_expr_no_seq:
   | e = expr SEMICOLON?                                             { e }
+
+eliteral:
+  | lit = literal
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELit lit) }
+  | EMPTY
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) ERecEmpty }
 
 literal:
   | v = BOOL     { Bool v }

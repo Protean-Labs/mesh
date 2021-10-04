@@ -163,7 +163,8 @@ let test_cases = [
   ("(1);",                                          mk_elit_int(1)),
 
   // // Modules
-  ("module M = {};",                                mk_expr(EMod("M", []))),
+  // TODO: Figure out if we should re-support empty modules
+  // ("module M = {};",                                mk_expr(EMod("M", []))),
   ("module M = {
       let x = 2;
     };",                                            mk_expr(EMod("M", [mk_expr(ELet(mk_pvar("x"), mk_elit_int(2)))]))),
@@ -174,6 +175,7 @@ let test_cases = [
   ("external f = \"int_add\";",                     mk_expr(ELet(mk_pvar("f"), mk_expr(EFun(mk_pvar("a"), mk_expr(EFun(mk_pvar("b"), mk_expr(EPrim(PIntAdd(mk_evar("a"), mk_evar("b"))))))))))),
 
   // Records
+  ("{};",                                           mk_expr(ERecEmpty)),
   ("{a: 1, b: 2};",                                 mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_expr(ERecEmpty)))))),
   ("{...x, a: 1, b: 2};",                           mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_evar("x")))))),
 
@@ -186,7 +188,7 @@ let test_cases = [
   ("let f = (x) => {...x, a: 1, b: 2};",            
     mk_expr(ELet(mk_pvar("f"), mk_expr(EFun(mk_pvar("x"), mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_evar("x")))))))))),
 
-  ("r.a;",                                          mk_expr(ERecSelect(mk_evar("r"), "a")))
+  ("r.a;",                                          mk_expr(ERecSelect(mk_evar("r"), "a"))),
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

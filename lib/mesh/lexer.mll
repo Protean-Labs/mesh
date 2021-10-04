@@ -49,6 +49,7 @@ rule token = parse
 
 (* Literals *)
 | "()"              { UNIT }
+| "{}"              { EMPTY }
 | "true"            { BOOL (true) }
 | "false"           { BOOL (false) }
 | int as lit        { INT (int_of_string lit) }

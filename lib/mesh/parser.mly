@@ -14,8 +14,8 @@
 %token <float>  FLOAT
 %token <string> STRING
 
-%token <string> VAR
-%token <string> MOD
+%token <string> LIDENT
+%token <string> UIDENT
 
 %token <string> OPERATOR
 
@@ -80,7 +80,7 @@ expr:
   | e1 = expr op = OPERATOR e2 = expr                       
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EApp (mk_expr (EVar ([], op)), e1)), e2)) }
   
-  | MODULE modname = MOD EQUALS
+  | MODULE modname = UIDENT EQUALS
     LBRACE body = structure RBRACE                          
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EMod (modname, body)) }
   | e = braced_expr                                         { e }
@@ -103,7 +103,7 @@ record_expr:
   | fields = separated_nonempty_list(COMMA, lbl_expr) COMMA?                          { fold_record (mk_expr ERecEmpty) fields }
 
 lbl_expr:
-  | varname = VAR COLON e = expr                                    { (varname, e, (mklocation $symbolstartpos $endpos)) }
+  | varname = LIDENT COLON e = expr                                    { (varname, e, (mklocation $symbolstartpos $endpos)) }
 
 fun_app:
   | e = expr UNIT                                                   
@@ -145,10 +145,10 @@ literal:
   | UNIT         { Unit }
 
 value_path:
-  | varname = VAR                                                   
+  | varname = LIDENT                                                   
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EVar ([], varname)) }
 
-  | modname = MOD DOT vpath = value_path                            
+  | modname = UIDENT DOT vpath = value_path                            
     { fmt_value_path vpath modname (mklocation $symbolstartpos $endpos) }
 
 // ================================================================
@@ -168,7 +168,7 @@ simple_pattern:
   | p = simple_pattern_not_ident                                    { p }
 
 simple_pattern_ident:
-  | varname = VAR                                                   
+  | varname = LIDENT                                                   
     { mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PVar varname) }
 
 simple_pattern_not_ident:

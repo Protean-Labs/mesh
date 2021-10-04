@@ -49,4 +49,5 @@ and primitive =
   | PFloatAdd(expr, expr)
   | PFloatSub(expr, expr)
   | PFloatMul(expr, expr)
-  | PFloatDiv(expr, expr);
+  | PFloatDiv(expr, expr)
+  | PGraphQL(expr, expr);

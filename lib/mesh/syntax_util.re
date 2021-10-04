@@ -75,8 +75,8 @@ let rec string_of_expr = (~level=0, ~print_loc=false, expr) => {
   | EPrim(prim)         => string_of_primitive(~level, prim)
   }
 }
-and string_of_primitive = (~level=0, prim) =>
-  indent(level)  |> (indent) =>
+and string_of_primitive = (~level=0, prim) => {
+  let indent = indent(level);
   switch (prim) {
   | PListCons(e1, e2)   => [%string "%{indent}(list_cons\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PIntAdd(e1, e2)     => [%string "%{indent}(int_add\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
@@ -87,7 +87,9 @@ and string_of_primitive = (~level=0, prim) =>
   | PFloatSub(e1, e2)   => [%string "%{indent}(float_sub\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PFloatMul(e1, e2)   => [%string "%{indent}(float_mul\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PFloatDiv(e1, e2)   => [%string "%{indent}(float_div\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PGraphQL(e1, e2)    => [%string "%{indent}(graphql\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   };
+}
 
 // ================================================================
 // Pattern helpers

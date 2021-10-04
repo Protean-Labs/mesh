@@ -2,6 +2,13 @@
   open Parser
 
   exception SyntaxError of string
+
+  let char_for_backslash = function
+    | 'n' -> '\010'
+    | 'r' -> '\013'
+    | 'b' -> '\008'
+    | 't' -> '\009'
+    | c   -> c
 }
 
 (* Helpers *)
@@ -18,6 +25,8 @@ let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' 
 
 let white   = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
+
+let backslash_escapes = ['\\' '\'' '"' 'n' 't' 'b' 'r' ' ']
 
 rule token = parse
 (* White space *)
@@ -61,6 +70,9 @@ rule token = parse
 
 and read_string buf = parse
 | '"'               { STRING (Buffer.contents buf) }
+| '\\' (backslash_escapes as c) 
+  { Buffer.add_char buf (char_for_backslash c);
+    read_string buf lexbuf }
 | [^ '"' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_string buf lexbuf}
 | eof               { raise (SyntaxError ("String is not terminated")) }
 | _                 { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }

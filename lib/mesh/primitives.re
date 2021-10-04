@@ -16,5 +16,6 @@ let primitive_of_name = fun
   | "float_sub" => mk_2args_primitive(mk_expr(EPrim(PFloatSub(mk_evar("a"), mk_evar("b")))))
   | "float_mul" => mk_2args_primitive(mk_expr(EPrim(PFloatMul(mk_evar("a"), mk_evar("b")))))
   | "float_div" => mk_2args_primitive(mk_expr(EPrim(PFloatDiv(mk_evar("a"), mk_evar("b")))))
-  | name          => raise(Invalid_primitive(name))
+  | "graphql"   => mk_2args_primitive(mk_expr(EPrim(PGraphQL(mk_evar("a"), mk_evar("b")))))
+  | name        => raise(Invalid_primitive(name))
 ;

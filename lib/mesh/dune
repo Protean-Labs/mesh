@@ -1,6 +1,6 @@
 (library
  (name mesh)
- (libraries easy_logging rresult menhirLib compiler-libs.common)
+ (libraries data_source easy_logging rresult menhirLib compiler-libs.common)
  (preprocess (pps ppx_string)))
 
 (menhir 

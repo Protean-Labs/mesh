@@ -1,0 +1,4 @@
+(library
+ (name data_source)
+ (libraries graphql)
+ (preprocess (pps ppx_string)))

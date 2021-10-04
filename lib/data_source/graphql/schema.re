@@ -1,7 +1,7 @@
 open Rresult;
 open Lwt.Infix;
 
-open Piaf;
+// open Piaf;
 open Graphql_ppx_base;
 
 let introspection = (uri) => {
@@ -95,21 +95,7 @@ let introspection = (uri) => {
     }  
   |};
 
-  let body = 
-    `Assoc([("query", `String(introspection_query))])
-    |> Yojson.Basic.to_string
-    |> Body.of_string;
-
-  Client.Oneshot.request(~body, ~meth=`POST, ~headers=[("Content-Type", "application/json")], uri) >>= (resp) =>
-  switch (resp) {
-  | Error(msg)  => Lwt.return @@ R.error_msg(Error.to_string(msg))
-  | Ok(resp)    => 
-    Body.to_string(resp.body) >|= (body) =>
-    switch (body) {
-    | Error(msg) => R.error_msg(Error.to_string(msg))
-    | Ok(body) => R.ok @@ Yojson.Basic.from_string(body)
-    }
-  };
+  Client.query(uri, introspection_query)
 };
 
 let make_schema = (schema) => {  

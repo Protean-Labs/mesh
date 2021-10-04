@@ -87,7 +87,7 @@ let pp_value = (values) =>
   };
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Mesh.parse_file(mesh_src) >>= Mesh.Eval.eval >>| fst);
+  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Mesh.parse_file(mesh_src) >>= (ast) => Lwt_main.run @@ Mesh.Eval.eval(ast) >>| fst);
 
 let suite = 
   "test_eval" >::: List.map(make_single_test, test_cases);

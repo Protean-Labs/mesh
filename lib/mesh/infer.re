@@ -437,6 +437,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
         let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
         List.iter(unify(env.new_var, TConst("float")), typs);
         (TConst("float"), env)
+      | PGraphQL(_) => raise(TypeError("graphql not implemented"))
     };
 
   switch (exprs) {

@@ -1,51 +1,51 @@
-open Rresult;
-open Lwt.Infix;
+// open Rresult;
+// open Lwt.Infix;
 
-open Piaf;
+// open Piaf;
 // open Graphql_ppx_base;
 
-module type QUERY = {
-  type t;
-  type t_vars;
+// module type QUERY = {
+//   type t;
+//   type t_vars;
 
-  module Raw: {
-    type t;
-    type t_vars;
-  };
+//   module Raw: {
+//     type t;
+//     type t_vars;
+//   };
 
-  let vars_to_json: Raw.t_vars => Yojson.Basic.t;
-  let serialize_vars: t_vars => Raw.t_vars;
+//   let vars_to_json: Raw.t_vars => Yojson.Basic.t;
+//   let serialize_vars: t_vars => Raw.t_vars;
 
-  let unsafe_from_json: Yojson.Basic.t => Raw.t;
-  let parse: Raw.t => t;
-  let query: string;
-};
+//   let unsafe_from_json: Yojson.Basic.t => Raw.t;
+//   let parse: Raw.t => t;
+//   let query: string;
+// };
 
-let make_request = (type vars, type ret, module Q: QUERY with type t_vars = vars and type t = ret, vars, url) => {
-  let vars = 
-    Q.serialize_vars(vars) 
-    |> Q.vars_to_json;
+// let make_request = (type vars, type ret, module Q: QUERY with type t_vars = vars and type t = ret, vars, url) => {
+//   let vars = 
+//     Q.serialize_vars(vars) 
+//     |> Q.vars_to_json;
 
-  let body = 
-    `Assoc([("query", `String(Q.query)), ("variables", vars)])
-    |> Yojson.Basic.to_string
-    |> Body.of_string;
+//   let body = 
+//     `Assoc([("query", `String(Q.query)), ("variables", vars)])
+//     |> Yojson.Basic.to_string
+//     |> Body.of_string;
 
-  Client.Oneshot.request(~body, ~meth=`POST, ~headers=[("Content-Type", "application/json")], url) >>= (resp) =>
-  switch (resp) {
-  | Error(msg)  => Lwt.return @@ R.error_msg(Error.to_string(msg))
-  | Ok(resp)    => 
-    Body.to_string(resp.body) >|= (body) =>
-    switch (body) {
-    | Error(msg) => R.error_msg(Error.to_string(msg))
-    | Ok(body) =>
-      switch (Yojson.Basic.from_string(body)) {
-      | `Assoc([("data", data)])  => Q.unsafe_from_json(data) |> Q.parse |> R.ok;
-      | _                         => R.error_msg("Bad graphgl response")
-      }
-    }
-  };
-};
+//   Client.Oneshot.request(~body, ~meth=`POST, ~headers=[("Content-Type", "application/json")], url) >>= (resp) =>
+//   switch (resp) {
+//   | Error(msg)  => Lwt.return @@ R.error_msg(Error.to_string(msg))
+//   | Ok(resp)    => 
+//     Body.to_string(resp.body) >|= (body) =>
+//     switch (body) {
+//     | Error(msg) => R.error_msg(Error.to_string(msg))
+//     | Ok(body) =>
+//       switch (Yojson.Basic.from_string(body)) {
+//       | `Assoc([("data", data)])  => Q.unsafe_from_json(data) |> Q.parse |> R.ok;
+//       | _                         => R.error_msg("Bad graphgl response")
+//       }
+//     }
+//   };
+// };
 
 
 
@@ -99,6 +99,8 @@ include Schema;
 
 open Rresult;
 open Lwt.Infix;
+
+module Client = Client;
 
 let query = (query, uri) =>
   Schema.get_schema(uri) >|= (schema) =>

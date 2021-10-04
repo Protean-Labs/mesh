@@ -68,9 +68,11 @@ let inject_es6_fun = fun
   | _ => assert(false)
 ;
 
+// TODO: Make sure removing COLON from trigerring token list doesn't break anything
 let is_triggering_token = fun
-  | ARROW | COLON => true
-  | _             => false
+  // | ARROW | COLON => true
+  | ARROW  => true
+  | _      => false
 ;
 
 let rec lex_balanced_step = (state, closing, acc, tok) => {

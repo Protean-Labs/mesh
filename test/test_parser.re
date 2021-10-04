@@ -4,6 +4,8 @@ open Rresult;
 open Mesh.Syntax;
 open Mesh.Syntax_util;
 
+exception Missing_test(string);
+
 let rec assert_expr_equal = (expr, expr') => 
   switch (expr.pexpr_desc, expr'.pexpr_desc) {
   | (ELit(lit), ELit(lit'))                   => lit == lit' 
@@ -16,6 +18,10 @@ let rec assert_expr_equal = (expr, expr') =>
   | (ESeq(e, rest), ESeq(e', rest'))          => assert_expr_equal(e, e') && assert_expr_equal(rest, rest')
   | (EMod(name, body), EMod(name', body'))    => (name == name') && List.fold_left2((acc, ele, ele') => acc && assert_expr_equal(ele, ele'), true, body, body')
   | (EPrim(prim), EPrim(prim'))               => assert_prim_equal(prim, prim')
+  | (ERecExtend(name, e1, e2), ERecExtend(name', e1', e2')) => 
+    (name == name') && assert_expr_equal(e1, e1') && assert_expr_equal(e2, e2')
+  | (ERecEmpty, ERecEmpty)                    => true
+  | (ERecSelect(_), ERecSelect(_))            => raise(Missing_test("ERecSelect"))
   | _                                         => false
   }
 and assert_prim_equal = (prim, prim') =>
@@ -137,15 +143,19 @@ let test_cases = [
   // Function partial application
   ("let g = f(a);",                   mk_expr(ELet(mk_pat(PVar("g")), mk_expr(EApp(mk_evar("f"), mk_evar("a")))))),
 
-  // Let bindings with patterns
-  ("let (a, b) = (0, \"hello\");",                  mk_expr(ELet(mk_pat(PTuple([mk_pat(PVar("a")), mk_pat(PVar("b"))])), mk_expr(ETuple([mk_elit_int(0), mk_elit_string("hello")]))))),
+  // // Let bindings with patterns
+  ("let (a, b) = (0, \"hello\");",                  
+    mk_expr(ELet(mk_pat(PTuple([mk_pat(PVar("a")), mk_pat(PVar("b"))])), mk_expr(ETuple([mk_elit_int(0), mk_elit_string("hello")]))))),
+  
   ("let (a, b) = (0, (\"hello\", 1.0));",           
     mk_expr(ELet(mk_pat(PTuple([mk_pat(PVar("a")), mk_pat(PVar("b"))])), mk_expr(ETuple([mk_elit_int(0), mk_expr(ETuple([mk_elit_string("hello"), mk_elit_float(1.0)]))]))))),
+  
   ("let (a, (b, c)) = (0, (\"hello\", 1.0));",      
     mk_expr(ELet(
       mk_pat(PTuple([mk_pat(PVar("a")), mk_pat(PTuple([mk_pat(PVar("b")), mk_pat(PVar("c"))]))])), 
       mk_expr(ETuple([mk_elit_int(0), mk_expr(ETuple([mk_elit_string("hello"), mk_elit_float(1.0)]))]))
-  ))),
+    ))
+  ),
 
   // Expressions wrapped in parantheses
   ("(a => a);",                                     mk_expr(EFun(mk_pat(PVar("a")), mk_evar("a")))),
@@ -166,6 +176,19 @@ let test_cases = [
   // Operator definition
   ("let (+) = (a, b) => a;",                        mk_expr(ELet(mk_pvar("+"), mk_expr(EFun(mk_pvar("a"), mk_expr(EFun(mk_pvar("b"), mk_evar("a")))))))),
   ("let (.~) = (a) => f(a);",                       mk_expr(ELet(mk_pvar("~"), mk_expr(EFun(mk_pvar("a"), mk_expr(EApp(mk_evar("f"), mk_evar("a")))))))),
+  
+  // Records
+  ("{a: 1, b: 2};",                                 mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_expr(ERecEmpty)))))),
+  ("{...x, a: 1, b: 2};",                           mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_evar("x")))))),
+
+  ("let r = {a: 1, b: 2};",                         mk_expr(ELet(mk_pvar("r"), mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_expr(ERecEmpty)))))))),
+  ("let r = {...x, a: 1, b: 2};",                   mk_expr(ELet(mk_pvar("r"), mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_evar("x")))))))),
+
+  ("let f = (x) => {a: x, b: 2};",                  
+    mk_expr(ELet(mk_pvar("f"), mk_expr(EFun(mk_pvar("x"), mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_evar("x"), mk_expr(ERecEmpty)))))))))),
+  
+  ("let f = (x) => {...x, a: 1, b: 2};",            
+    mk_expr(ELet(mk_pvar("f"), mk_expr(EFun(mk_pvar("x"), mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_evar("x")))))))))),
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

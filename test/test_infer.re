@@ -140,6 +140,27 @@ let test_cases = [
     ++2;",                                  
     [TConst("unit"), TConst("unit"), TConst("int")]
   ),
+  (
+    "let x = {a:1, b:\"hello\"}; x;",
+    [TConst("unit"), TRec((TRowExtend("b", TConst("string"), TRowExtend("a", TConst("int"), TRowEmpty))))]
+  ),
+  (
+    "let x = {a:1, b:\"hello\"}; let y = {...x, c:x}; y;",
+    [TConst("unit"), TConst("unit"), 
+      TRec((TRowExtend("c", TRec((
+        TRowExtend("b", TConst("string"), TRowExtend("a", TConst("int"), TRowEmpty))
+      )), TRowExtend("b", TConst("string"), TRowExtend("a", TConst("int"), TRowEmpty)))))
+    ]
+  ),
+  (
+    "let f = (y) => y;  let x = {a:f(1)}; let y = {b:f(\"hello\")}; (x,y);",
+    [TConst("unit"), TConst("unit"), TConst("unit"),
+      TTuple([
+        TRec((TRowExtend("a", TConst("int"), TRowEmpty))),
+        TRec((TRowExtend("b", TConst("string"), TRowEmpty)))
+      ])
+    ]
+  )
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 
@@ -152,7 +173,7 @@ let pp_typ_signatures = (typs) =>
 let make_single_test = ((mesh_expr, expected)) =>
   (mesh_expr) >:: (_) => {
     // assert_equal(~printer=pp_typ_signatures, expected, infer(Env.empty, 0, [mesh_expr]));
-    assert_equal(~printer=pp_typ_signatures, expected, Mesh.parse_file(mesh_expr) >>= infer(Env.empty, 0) >>| ((typs, new_env)) => {Env.reset_id(new_env); typs});
+    assert_equal(~printer=pp_typ_signatures, expected, Mesh.parse_file(mesh_expr) >>= infer(Env.empty, 0) >>| ((typs, _)) => typs);
   }
 
 let suite = 

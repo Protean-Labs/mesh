@@ -1,9 +1,10 @@
 open Rresult;
+// open Lwt.Infix;
 
 open Syntax;
 open Syntax_util;
 
-exception TypeError(string);
+exception Type_error(string);
 
 type id = int;
 type level = int;
@@ -23,8 +24,48 @@ and tvar =
   | Free(id, level)
   | Constrained(typ)
   | Quantified(id)
-and tenv = list((name, typ))
-;
+and tenv = list((name, typ));
+
+let typ_of_graphql_query = (uri, query) => { 
+  open Graphql_ppx_base.Result_structure;
+  
+  let rec typ_of_result_structure = (op) => 
+    switch (op) {
+    | Res_nullable(_) =>                    raise(Type_error("GraphQL: Res_nullable not implemented"))
+    | Res_array({inner, _}) =>              TList(typ_of_result_structure(inner))
+    | Res_id(_) =>                          raise(Type_error("GraphQL: Res_id not implemented"))
+    | Res_string(_) =>                      TConst("string")
+    | Res_int(_) =>                         TConst("int")
+    | Res_float(_) =>                       TConst("float")
+    | Res_boolean(_) =>                     TConst("bool") 
+    | Res_raw_scalar(_) =>                  raise(Type_error("GraphQL: Res_raw_scalar not implemented"))
+    | Res_poly_enum(_) =>                   raise(Type_error("GraphQL: Res_poly_enum not implemented"))
+    | Res_custom_decoder(_) =>              raise(Type_error("GraphQL: Res_custom_decoder not implemented"))
+    | Res_record({fields, _})
+    | Res_object({fields, _}) =>
+      let fields = List.fold_left((acc, field) => typ_of_field_result(field) |> ((name, typ)) => TRowExtend(name, typ, acc), TRowEmpty, fields);
+      TRec(fields)
+    | Res_poly_variant_selection_set(_) =>  raise(Type_error("GraphQL: Res_poly_variant_selection_set not implemented"))
+    | Res_poly_variant_union(_) =>          raise(Type_error("GraphQL: Res_poly_variant_union not implemented"))
+    | Res_poly_variant_interface(_) =>      raise(Type_error("GraphQL: Res_poly_variant_interface not implemented"))
+    | Res_solo_fragment_spread(_) =>        raise(Type_error("GraphQL: Res_solo_fragment_spread not implemented"))
+    | Res_error(_) =>                       raise(Type_error("GraphQL: Res_error not implemented"))
+    }
+  and typ_of_field_result = (field) =>
+    switch (field) {
+    | Fr_named_field({name, type_, _}) => (name, typ_of_result_structure(type_));
+    | Fr_fragment_spread(_) => raise(Type_error("GraphQL: Fragments not supported"))
+    };
+
+  Lwt_result.map((ops) => 
+    switch (ops) {
+    | [(Def_operation({inner, _}), _)] => typ_of_result_structure(inner);
+    | [(Def_fragment(_), _)] => raise(Type_error("GraphQL: Fragments not supported"))
+    | _ => raise(Type_error("GraphQL: Only single query supported"))
+    },
+    Data_source.Graphql.Client.validate(Uri.of_string(uri), query)
+  );
+};
 
 let string_of_typ = (typ) => {
   let id_name_map = Hashtbl.create(10);
@@ -65,7 +106,7 @@ let string_of_typ = (typ) => {
     | TVar({contents: Free(id, _)}) => [%string "_%{string_of_int(id)}"]
     | TVar({contents: Constrained(typ)}) => f(is_simple, typ)
     | TRec(row) => [%string "{%{f false row}}"]
-    | TRowEmpty => ""
+    | TRowEmpty => "TRowEmpty"
     | TRowExtend(_) => "TRow extend"
     };
   
@@ -101,8 +142,8 @@ module Env = {
     tvars: List.fold_left((acc, modname) => 
     switch (List.assoc_opt(modname, acc)) {
     | Some(TMod(tenv)) => tenv
-    | Some(_)         => raise(TypeError([%string "%{modname} is not a module!"]))
-    | None            => raise(TypeError([%string "Unbound module %{modname}"]))
+    | Some(_)         => raise(Type_error([%string "%{modname} is not a module!"]))
+    | None            => raise(Type_error([%string "Unbound module %{modname}"]))
     }
     , env.tvars, path)  |> (mod_ns) => [(name, typ), ...mod_ns]
   };
@@ -119,14 +160,14 @@ module Env = {
     List.fold_left((acc, modname) => 
       switch (List.assoc_opt(modname, acc)) {
       | Some(TMod(tenv)) => tenv
-      | Some(_)         => raise(TypeError([%string "%{modname} is not a module!"]))
-      | None            => raise(TypeError([%string "Unbound module %{modname}"]))
+      | Some(_)         => raise(Type_error([%string "%{modname} is not a module!"]))
+      | None            => raise(Type_error([%string "Unbound module %{modname}"]))
       }
     , env.tvars, path)  |> (mod_ns) =>
     // Attempt to find [name] in module namespace
     switch (List.assoc_opt(name, mod_ns)) {
     | Some(t) => t
-    | None    => raise(TypeError([%string "Unbound value %{string_of_expr (mk_expr ~loc (EVar(path, name)))}"]))
+    | None    => raise(Type_error([%string "Unbound value %{string_of_expr (mk_expr ~loc (EVar(path, name)))}"]))
     }; 
 
   let reset_id = (env) => {...env, new_var :new_var(counter)};
@@ -135,10 +176,10 @@ module Env = {
 let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
   let rec f = fun
     | TVar({contents: Constrained(typ)}) => f(typ)
-    | TVar({contents: Quantified(_)}) => raise(TypeError("Cant check quantified variable"))
+    | TVar({contents: Quantified(_)}) => raise(Type_error("Cant check quantified variable"))
     | TVar({contents: Free(other_id, other_level)} as other_tvar) => {
       (other_id == tvar_id)? 
-      raise(TypeError("Recursive types")): 
+      raise(Type_error("Recursive types")): 
       (other_level > tvar_level)? 
             other_tvar := Free(other_id, tvar_level):
             ();
@@ -150,7 +191,7 @@ let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
     | TRowExtend(_, field_typ, row) => { f(field_typ); f(row);}
     | TRowEmpty => ()
     | TConst(_) => ()
-    | _ => raise(TypeError("occurs check not implemented"))
+    | _ => raise(Type_error("occurs check not implemented"))
   ;
   f(typ);
 };
@@ -168,13 +209,13 @@ let rec unify = (new_var, typ1, typ2) => {
     | (TList(typ1), TList(typ2)) => unify(new_var, typ1, typ2)
     | (TTuple(typs1), TTuple(typs2)) => {
         try(List.iter2((typ1, typ2) => unify(new_var, typ1,typ2), typs1, typs2)){
-          | Invalid_argument(_) => raise(TypeError("Cant unify new_var, tuples of different lengths"))
+          | Invalid_argument(_) => raise(Type_error("Cant unify new_var, tuples of different lengths"))
         }
       }
     | (TVar({contents: Constrained(typ1)}), typ2) => unify(new_var, typ1, typ2)
     | (typ1, TVar({contents: Constrained(typ2)})) => unify(new_var, typ1, typ2)
     | (TVar({contents: Free(id1, _)}), TVar({contents: Free(id2, _)})) when id1 == id2 =>
-      raise(TypeError("Can only have one instance of a type variable"))
+      raise(Type_error("Can only have one instance of a type variable"))
     | (TVar({contents: Free(id, level)} as tvar), typ2) => {
       occurs_check_adjust_levels(id, level, typ2);
       tvar := Constrained(typ2);
@@ -192,15 +233,15 @@ let rec unify = (new_var, typ1, typ2) => {
       };
       let rest_row2 = rewrite_row(new_var, row2, label1, field_typ1);
       switch (rest_row_tvar_ref_option) {
-        | Some({contents: Constrained(_)}) => raise(TypeError("Recursive row types"))
+        | Some({contents: Constrained(_)}) => raise(Type_error("Recursive row types"))
         | _ => ()
       }
       unify(new_var, rest_row1, rest_row2)
-    | (_, _) => raise(TypeError([%string "Cannot unify %{string_of_typ(typ1)} and %{string_of_typ(typ2)}"]))
+    | (_, _) => raise(Type_error([%string "Cannot unify %{string_of_typ(typ1)} and %{string_of_typ(typ2)}"]))
   }
 }
 and rewrite_row = (new_var, row2, label1, field_typ1) => switch (row2) {
-  | TRowEmpty => raise(TypeError([%string "rec does not contain label %{label1}"]))
+  | TRowEmpty => raise(Type_error([%string "rec does not contain label %{label1}"]))
   | TRowExtend(label2, field_typ2, rest_row2) when label2 == label1 =>
     unify(new_var, field_typ1, field_typ2);
     rest_row2;
@@ -212,7 +253,7 @@ and rewrite_row = (new_var, row2, label1, field_typ1) => switch (row2) {
     let typ2 = TRowExtend(label1, field_typ1, rest_row2);
     tvar := Constrained(typ2);
     rest_row2
-  | _ => raise(TypeError("rewrite requires rec type"))
+  | _ => raise(Type_error("rewrite requires rec type"))
 };
 
 let rec generalize = (level) => fun
@@ -226,14 +267,14 @@ let rec generalize = (level) => fun
   | TTuple(l) => TTuple(List.map(generalize(level), l))
   // | TMod(tenv) => TMod(List.split(tenv) |> ((names, typs)) => List.combine(names, List.map(generalize(level), typs)))
   | TRec(row) => TRec(generalize(level,row))
-  | TMod(_) => raise(TypeError("Cannot generalize module"))
+  | TMod(_) => raise(Type_error("Cannot generalize module"))
   | TRowExtend(label, field_typ, row) =>  TRowExtend(label, generalize(level,field_typ), generalize(level,row))
   | TVar({contents: Constrained(typ)}) => generalize(level, typ)
   | TVar({contents: Quantified(_)}) as typ => typ
   | TVar({contents: Free(_)}) as typ => typ
   | TConst(_) as typ => typ
   | TRowEmpty as typ => typ
-  // | _ => raise(TypeError("generalize not implemented"))
+  // | _ => raise(Type_error("generalize not implemented"))
 ;
 
 let instantiate = (new_var, level:level, typ) => {
@@ -257,10 +298,10 @@ let instantiate = (new_var, level:level, typ) => {
       | TList(typ1) => TList(f(typ1))
       | TTuple(l) => TTuple(List.map(f, l))
       | TRec(row) => TRec(f(row))
-      | TMod(_) => raise(TypeError("Cannot instantiate module"))
+      | TMod(_) => raise(Type_error("Cannot instantiate module"))
       | TRowEmpty => typ 
       | TRowExtend(label, field_typ, row) => TRowExtend(label, f(field_typ), f(row))
-     // | _ => raise(TypeError("instantiate not implemented"))
+     // | _ => raise(Type_error("instantiate not implemented"))
     };
 
   f(typ);
@@ -275,7 +316,7 @@ let rec match_fun_typ = (new_var, fun_typ) => switch (fun_typ) {
     tvar := Constrained(TFun(param_typ, return_typ));
     (param_typ, return_typ);
   }
-  | _ => raise(TypeError("Expected a function"))
+  | _ => raise(Type_error("Expected a function"))
 };
 
 
@@ -295,7 +336,7 @@ let rec bind_pat_typ = (pat, typ) =>
   | (PLit(_), _) => []
   | (PTuple(lpat), TTuple(lt)) => 
     List.fold_left2((acc, pat, e) => acc @ bind_pat_typ(pat, e), [], lpat, lt)
-  | _ => raise(TypeError("Cannot destructure pattern"))
+  | _ => raise(Type_error("Cannot destructure pattern"))
   };
 
 
@@ -306,7 +347,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
     | ELit(lit) => (type_const_of_literal(lit), env)
     | EVar(path, name) => {
         let typ = try (instantiate(env.new_var, level, Env.lookup(env, path, name, expr.pexpr_loc))) {
-          | Not_found => raise(TypeError([%string "variable %{name}"]))
+          | Not_found => raise(Type_error([%string "variable %{name}"]))
         };
         (typ, env)
       }
@@ -354,7 +395,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
           | [lone] => (TList(lone), new_env)
           | [first, ...rest] => 
             try (List.iter(unify(env.new_var,first), rest)) {
-              | TypeError(msg) => raise(TypeError("List" ++ msg))
+              | Type_error(msg) => raise(Type_error("List" ++ msg))
             };
             (TList(first), new_env);
         };
@@ -389,14 +430,14 @@ let rec infer_exn = (env, level, exprs, typs) => {
     | EMod(name, exprs) => 
       let (_, new_env:Env.t) = infer_exn({...env, tvars:[]}, level, exprs, []);
       (TConst("unit"), Env.extend(env,[],name ,TMod(new_env.tvars)))
-    // | _ => raise(TypeError("infer not implmented"))
+    // | _ => raise(Type_error("infer not implmented"))
     }
     and typ_of_primitive = (prim, env) => switch (prim) {
       | PListCons(el_expr, list_expr) =>
         let (typs, _) = infer_exn(env, level, [el_expr, list_expr], []) |> ((inferred, nenv)) =>
         switch (inferred) {
           | [_, _] as l => (l, nenv)
-          | _ => raise(TypeError("cons_list wrong number of arguments"))
+          | _ => raise(Type_error("cons_list wrong number of arguments"))
         };
         let typ = List.hd(typs);
         List.iter2(
@@ -437,7 +478,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
         let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
         List.iter(unify(env.new_var, TConst("float")), typs);
         (TConst("float"), env)
-      | PGraphQL(_) => raise(TypeError("graphql not implemented"))
+      | PGraphQL(_) => raise(Type_error("graphql not implemented"))
     };
 
   switch (exprs) {
@@ -451,5 +492,5 @@ let rec infer_exn = (env, level, exprs, typs) => {
 
 let infer = (env, level, e) =>
   try (R.ok @@ infer_exn(env, level, e, [])) {
-  | TypeError(msg) => R.error_msg(msg)
+  | Type_error(msg) => R.error_msg(msg)
   };

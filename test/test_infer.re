@@ -129,7 +129,17 @@ let test_cases = [
     let f2 = M.f(1);
     f2(\"hello\");",
     [TConst("unit"), TConst("unit"), TConst("int")]
-  )
+  ),
+  ("external add = \"int_add\";
+    let (+) = add;
+    1 + 2;",                                
+    [TConst("unit"), TConst("unit"), TConst("int")]
+  ),
+  ("external add = \"int_add\";
+    let (.++) = add(1);
+    ++2;",                                  
+    [TConst("unit"), TConst("unit"), TConst("int")]
+  ),
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 

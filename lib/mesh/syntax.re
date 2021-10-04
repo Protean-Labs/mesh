@@ -8,8 +8,7 @@ type literal =
   | Float(float)
   | String(string)
   | Bool(bool)
-  | Unit
-;
+  | Unit;
 
 type name = string;
 
@@ -21,8 +20,7 @@ and pattern_desc =
   | PAny                    // _        E.g.: let f = (_) => 10;
   | PVar(name)              // x        E.g.: let f = (x) => 1;
   | PLit(literal)           // true     E.g.: let f = (true) => false;
-  | PTuple(list(pattern))   // (a, b)   E.g.: let f = ((a, b)) => a;
-;
+  | PTuple(list(pattern));  // (a, b)   E.g.: let f = ((a, b)) => a;
 
 type expr = {
   pexpr_desc: expr_desc,
@@ -36,6 +34,9 @@ and expr_desc =
   | EApp(expr, expr)
   | EFun(pattern, expr)
   | ELet(pattern, expr)
+  | ERecSelect(expr, name)
+  | ERecExtend(name, expr, expr)
+  | ERecEmpty
   | ESeq(expr, expr)
   | EMod(name, list(expr))
   | EOpen(list(name), name)

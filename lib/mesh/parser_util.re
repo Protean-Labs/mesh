@@ -73,6 +73,8 @@ let fmt_tuple = (ele, loc) =>
   | _ => mk_expr(~loc, ETuple(ele))
   };
 
+let fold_record = (base, fields) =>
+  List.fold_left((acc, (name, expr, loc)) => mk_expr(~loc, ERecExtend(name, expr, acc)), base, fields);
 
 let fmt_value_path = (expr, modname, loc) =>
   switch (expr.pexpr_desc) {
@@ -86,4 +88,4 @@ let fmt_module_path = (mpath) =>
   // TODO: Include loc data in EOpen path
   | [(modname, loc), ...mpath] => mk_expr(~loc, EOpen(List.map(fst, mpath), modname))
   | []                  => raise(Parsing_error("fmt_module_path: empty module path"))
-  }
+  };

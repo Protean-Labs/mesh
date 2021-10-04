@@ -130,13 +130,17 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
         eval_non_let(env, e) |> (_) => eval_non_let(env, rest)
       }
     | EPrim(prim) => eval_prim(env, prim)
+    | ERecSelect(e, name) =>
+      switch (eval_non_let(env, e)) {
+      | VRecord(fields) => List.assoc(name, fields)
+      | _ => raise(Runtime_error("ERecSelect: base is not a record"))
+      }
     | ERecExtend(name, e, base) =>
       switch (eval_non_let(env, base)) {
       | VRecord(fields) => VRecord(rm_record_duplicates @@ [(name, eval_non_let(env, e)), ...fields])
       | _ => raise(Runtime_error("ERecExtend: base is not a record"))
       }
     | ERecEmpty => VRecord([])
-    | _ => raise(Runtime_error("eval not implemented"))
     }
   and eval_prim = (env, prim) =>
     switch (prim) {

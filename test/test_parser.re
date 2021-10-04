@@ -20,8 +20,8 @@ let rec assert_expr_equal = (expr, expr') =>
   | (EPrim(prim), EPrim(prim'))               => assert_prim_equal(prim, prim')
   | (ERecExtend(name, e1, e2), ERecExtend(name', e1', e2')) => 
     (name == name') && assert_expr_equal(e1, e1') && assert_expr_equal(e2, e2')
+  | (ERecSelect(e, name), ERecSelect(e', name')) => (name == name') && assert_expr_equal(e, e')
   | (ERecEmpty, ERecEmpty)                    => true
-  | (ERecSelect(_), ERecSelect(_))            => raise(Missing_test("ERecSelect"))
   | _                                         => false
   }
 and assert_prim_equal = (prim, prim') =>
@@ -185,6 +185,8 @@ let test_cases = [
   
   ("let f = (x) => {...x, a: 1, b: 2};",            
     mk_expr(ELet(mk_pvar("f"), mk_expr(EFun(mk_pvar("x"), mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_evar("x")))))))))),
+
+  ("r.a;",                                          mk_expr(ERecSelect(mk_evar("r"), "a")))
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 

@@ -78,6 +78,11 @@ let test_cases = [
   ("{a: 1, b: 2, a: 3};",                   [VRecord([("a", VInt(3)), ("b", VInt(2))])]),
   ("let r = {a: 1, b: 2};
     {...r, a: 3};",                         [VRecord([("a", VInt(3)), ("b", VInt(2))])]),
+  ("let r = {a: 1, b: 2};
+    r.a;",                                  [VInt(1)]),
+  ("let r = {a: 1, b: 2};
+    let r2 = {...r, a: 3};
+    r2.a;",                                 [VInt(3)]),
 
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 

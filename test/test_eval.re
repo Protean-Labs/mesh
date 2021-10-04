@@ -72,6 +72,7 @@ let test_cases = [
     f(4., 2.);",                            [VFloat(2.)]),
 
   // Records
+  ("{};",                                   [VRecord([])]),
   ("{a: 1, b: 2, c: 3};",                   [VRecord([("c", VInt(3)), ("b", VInt(2)), ("a", VInt(1))])]),
   ("let r = {a: 1, b: 2};
     {...r, c: 3};",                         [VRecord([("c", VInt(3)), ("b", VInt(2)), ("a", VInt(1))])]),

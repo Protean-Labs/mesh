@@ -71,6 +71,9 @@ let value_of_var = (env, path, name, loc) => {
   }; 
 };
 
+let rm_record_duplicates = (l) =>
+  List.rev @@ List.fold_left((acc, (name, _) as ele) => List.assoc_opt(name, acc) == None ? [ele, ...acc] : acc, [], l);
+
 /** [bind_pat_value(pat, v)] returns a list of tuples of type [(name, value)] containing 
     the bindings to be added to the environment where each variable in the {pattern} [pat] 
     is binded to a value in the {value} [v] when possible. When [v]'s structure does not 
@@ -127,13 +130,17 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
         eval_non_let(env, e) |> (_) => eval_non_let(env, rest)
       }
     | EPrim(prim) => eval_prim(env, prim)
+    | ERecSelect(e, name) =>
+      switch (eval_non_let(env, e)) {
+      | VRecord(fields) => List.assoc(name, fields)
+      | _ => raise(Runtime_error("ERecSelect: base is not a record"))
+      }
     | ERecExtend(name, e, base) =>
       switch (eval_non_let(env, base)) {
-      | VRecord(fields) => VRecord([(name, eval_non_let(env, e)), ...fields])
+      | VRecord(fields) => VRecord(rm_record_duplicates @@ [(name, eval_non_let(env, e)), ...fields])
       | _ => raise(Runtime_error("ERecExtend: base is not a record"))
       }
     | ERecEmpty => VRecord([])
-    | _ => raise(Runtime_error("eval not implemented"))
     }
   and eval_prim = (env, prim) =>
     switch (prim) {

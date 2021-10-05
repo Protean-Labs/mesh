@@ -1,0 +1,19 @@
+module Stdlib = {
+  module Int = {
+    external add = "int_add";
+    external sub = "int_sub";
+    external mul = "int_mul";
+    external div = "int_div";
+  };
+
+  module Float = {
+    external add = "float_add";
+    external sub = "float_sub";
+    external mul = "float_mul";
+    external div = "float_div";
+  };
+
+  module List = {
+    external cons = "list_cons";
+  };
+};

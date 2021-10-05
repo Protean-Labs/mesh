@@ -81,3 +81,25 @@ let fmt_value_path = (var, modname, loc) =>
   | EVar(path, name) => mk_expr(~loc, EVar([modname, ...path], name))
   | _                => raise(Parsing_error("fmt_value_path: value is not EVar"))
   };
+
+// TODO: Decide if the functions below should be used to enforce operator constraints on 
+// the number of arguments (i.e.: should we enforce the constraint that prefix ops can
+// only be binded to functions with one argument? Likewise for infix ops and functions
+// with two arguments). For now, do not enforce the constraint and assume user is not smart.
+
+let is_fun = 
+  fun
+  | EFun(_) => true
+  | _ => false;
+
+let check_infix_op_value = (e) => 
+  switch (e.pexpr_desc) {
+  | EFun(_, {pexpr_desc: EFun(_, body), _}) when !is_fun(body.pexpr_desc) => e
+  | _ => raise(Parsing_error("Only functions with two arguments can be binded to infix operators"))
+  };
+
+let check_prefix_op_value = (e) =>
+  switch (e.pexpr_desc) {
+  | EFun(_, body) when !is_fun(body.pexpr_desc) => e
+  | _ => raise(Parsing_error("Only functions with one argument can be binded to prefix operators"))
+  };

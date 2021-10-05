@@ -14,7 +14,7 @@ let string  = (alpha|digit|'_')*
 let lident     = ['a'-'z'] string 
 let uident     = ['A'-'Z'] string
 
-let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@')+
+let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@' | '~')+
 
 let white   = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"

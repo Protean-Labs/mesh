@@ -230,7 +230,8 @@ let token = state => {
   };
 };
 
-let string_of_token = fun
+let string_of_token = 
+  fun
   | UNIT => "UNIT"
   | EMPTY => "EMPTY"
   | BOOL(_) => [%string "BOOL"]
@@ -258,5 +259,4 @@ let string_of_token = fun
   | EQUALS => "EQUALS"
   | ARROW => "ARROW"
   | DOTDOTDOT => "DOTDOTDOT"
-  | EOF => "EOF"
-;
+  | EOF => "EOF";

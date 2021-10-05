@@ -4,6 +4,7 @@ module Stdlib = {
     external sub = "int_sub";
     external mul = "int_mul";
     external div = "int_div";
+    external neg = "int_neg";
   };
 
   module Float = {
@@ -11,9 +12,69 @@ module Stdlib = {
     external sub = "float_sub";
     external mul = "float_mul";
     external div = "float_div";
+    external neg = "float_neg";
   };
 
   module List = {
     external cons = "list_cons";
+    external map = "list_map";
+    external mapi = "list_mapi";
+    external foldl = "list_foldl";
+    external foldr = "list_foldr";
   };
+
+  let cons = List.cons;
+
+  let (+) = Int.add;
+  let (-) = Int.sub;
+  let (*) = Int.mul;
+  let (/) = Int.div;
 };
+
+module GraphQL = {
+  external execute = "graphql_execute";
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+external f = \"int_add\"; 
+let x = 1; 
+
+module M = { 
+  let y = x;
+};
+
+open M; 
+f(x, y);
+
+[
+  ("y", EVar("x")),
+  ("M", [("y", EVar("x"))]),
+  ("x", ELit(Int(1))),
+  ("f", EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(EVar("a"), EVar("b"))))))
+]
+
+[
+  ("x", ELit(Int(1))),
+  ("f", EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(EVar("a"), EVar("b"))))))
+]

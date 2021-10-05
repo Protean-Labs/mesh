@@ -3,18 +3,36 @@ open Syntax_util;
 
 exception Invalid_primitive(string);
 
+let mk_1arg_primitive = (expr) =>
+  mk_expr(EFun(mk_pvar("a"), expr));
+
 let mk_2args_primitive = (expr) =>
   mk_expr(EFun(mk_pvar("a"), mk_expr(EFun(mk_pvar("b"), expr))));
 
 let primitive_of_name = fun
-  | "list_cons" => mk_2args_primitive(mk_expr(EPrim(PListCons(mk_evar("a"), mk_evar("b")))))
-  | "int_add"   => mk_2args_primitive(mk_expr(EPrim(PIntAdd(mk_evar("a"), mk_evar("b")))))
-  | "int_sub"   => mk_2args_primitive(mk_expr(EPrim(PIntSub(mk_evar("a"), mk_evar("b")))))
-  | "int_mul"   => mk_2args_primitive(mk_expr(EPrim(PIntMul(mk_evar("a"), mk_evar("b")))))
-  | "int_div"   => mk_2args_primitive(mk_expr(EPrim(PIntDiv(mk_evar("a"), mk_evar("b")))))
-  | "float_add" => mk_2args_primitive(mk_expr(EPrim(PFloatAdd(mk_evar("a"), mk_evar("b")))))
-  | "float_sub" => mk_2args_primitive(mk_expr(EPrim(PFloatSub(mk_evar("a"), mk_evar("b")))))
-  | "float_mul" => mk_2args_primitive(mk_expr(EPrim(PFloatMul(mk_evar("a"), mk_evar("b")))))
-  | "float_div" => mk_2args_primitive(mk_expr(EPrim(PFloatDiv(mk_evar("a"), mk_evar("b")))))
+  // Int primitive functions
+  | "int_add"     => mk_2args_primitive(mk_expr(EPrim(PIntAdd(mk_evar("a"), mk_evar("b")))))
+  | "int_sub"     => mk_2args_primitive(mk_expr(EPrim(PIntSub(mk_evar("a"), mk_evar("b")))))
+  | "int_mul"     => mk_2args_primitive(mk_expr(EPrim(PIntMul(mk_evar("a"), mk_evar("b")))))
+  | "int_div"     => mk_2args_primitive(mk_expr(EPrim(PIntDiv(mk_evar("a"), mk_evar("b")))))
+  | "int_neg"     => mk_1arg_primitive(mk_expr(EPrim(PIntNeg(mk_evar("a")))))
+
+  // Float primitive functions
+  | "float_add"   => mk_2args_primitive(mk_expr(EPrim(PFloatAdd(mk_evar("a"), mk_evar("b")))))
+  | "float_sub"   => mk_2args_primitive(mk_expr(EPrim(PFloatSub(mk_evar("a"), mk_evar("b")))))
+  | "float_mul"   => mk_2args_primitive(mk_expr(EPrim(PFloatMul(mk_evar("a"), mk_evar("b")))))
+  | "float_div"   => mk_2args_primitive(mk_expr(EPrim(PFloatDiv(mk_evar("a"), mk_evar("b")))))
+  | "float_neg"   => mk_1arg_primitive(mk_expr(EPrim(PFloatNeg(mk_evar("a")))))
+
+  // List primitive functions
+  | "list_cons"   => mk_2args_primitive(mk_expr(EPrim(PListCons(mk_evar("a"), mk_evar("b")))))
+  | "list_map"    => mk_2args_primitive(mk_expr(EPrim(PListMap(mk_evar("a"), mk_evar("b")))))
+  | "list_mapi"   => mk_2args_primitive(mk_expr(EPrim(PListMapi(mk_evar("a"), mk_evar("b")))))
+  | "list_foldl"  => mk_2args_primitive(mk_expr(EPrim(PListFoldl(mk_evar("a"), mk_evar("b")))))
+  | "list_foldr"  => mk_2args_primitive(mk_expr(EPrim(PListFoldr(mk_evar("a"), mk_evar("b")))))
+
+  // GraphQL
+  | "graphql_execute" => mk_2args_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a"), mk_evar("b")))))
+  
   | name          => raise(Invalid_primitive(name))
 ;

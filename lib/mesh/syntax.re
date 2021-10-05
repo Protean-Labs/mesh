@@ -46,7 +46,14 @@ and primitive =
   | PIntSub(expr, expr)
   | PIntMul(expr, expr)
   | PIntDiv(expr, expr)
+  | PIntNeg(expr)
   | PFloatAdd(expr, expr)
   | PFloatSub(expr, expr)
   | PFloatMul(expr, expr)
-  | PFloatDiv(expr, expr);
+  | PFloatDiv(expr, expr)
+  | PFloatNeg(expr)
+  | PListMap(expr, expr)
+  | PListMapi(expr, expr)
+  | PListFoldl(expr, expr)
+  | PListFoldr(expr, expr)
+;

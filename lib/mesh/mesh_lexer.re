@@ -68,9 +68,11 @@ let inject_es6_fun = fun
   | _ => assert(false)
 ;
 
+// TODO: Make sure removing COLON from trigerring token list doesn't break anything
 let is_triggering_token = fun
-  | ARROW | COLON => true
-  | _             => false
+  // | ARROW | COLON => true
+  | ARROW  => true
+  | _      => false
 ;
 
 let rec lex_balanced_step = (state, closing, acc, tok) => {
@@ -108,7 +110,7 @@ let rec lex_balanced_step = (state, closing, acc, tok) => {
         };
       lex_balanced_step(state, closing, rparen @ acc, tok');
     };
-  | (VAR(_) | UNDERSCORE, _) =>
+  | (LIDENT(_) | UNDERSCORE, _) =>
     switch (token(state)) {
     | exception exn =>
       raise([@implicit_arity] Lex_balanced_failed(acc, Some(exn)))
@@ -181,7 +183,7 @@ let token = state => {
     switch (token(state)) {
     | (LPAREN | LBRACE) as tok =>
       lookahead_esfun(state, save_triple(state.lexbuf, tok))
-    | (VAR(_) | UNDERSCORE) as tok =>
+    | (LIDENT(_) | UNDERSCORE) as tok =>
       let tok = save_triple(lexbuf, tok);
       switch (token(state)) {
       | exception exn =>
@@ -214,14 +216,14 @@ let token = state => {
       && space_start <= state.completion_ident_offset
       && token_stop >= state.completion_ident_offset) {
     switch (token') {
-    // | UIDENT(_)
-    | VAR(_) when token_start <= state.completion_ident_offset =>
+    | UIDENT(_)
+    | LIDENT(_) when token_start <= state.completion_ident_offset =>
       state.completion_ident_offset = min_int;
       token;
     | _ =>
       state.queued_tokens = [token, ...state.queued_tokens];
-      state.completion_ident_offset = min_int;
-      (VAR("_"), state.completion_ident_pos, state.completion_ident_pos);
+      // state.completion_ident_offset = min_int;
+      (LIDENT("_"), state.completion_ident_pos, state.completion_ident_pos);
     };
   } else {
     token;
@@ -230,12 +232,13 @@ let token = state => {
 
 let string_of_token = fun
   | UNIT => "UNIT"
+  | EMPTY => "EMPTY"
   | BOOL(_) => [%string "BOOL"]
   | INT(_) => [%string "INT"]
   | FLOAT(_) => [%string "FLOAT"]
   | STRING(s) => [%string "STRING %{s}"]
-  | VAR(s) => [%string "VAR %{s}"]
-  | MOD(s) => [%string "MOD %{s}"]
+  | LIDENT(s) => [%string "LIDENT %{s}"]
+  | UIDENT(s) => [%string "UIDENT %{s}"]
   | OPERATOR(s) => [%string "OPERATOR %{s}"]
   | LET => "LET"
   | MODULE => "MODULE"

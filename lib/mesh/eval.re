@@ -16,6 +16,7 @@ and value =
   | VTuple(list(value))
   | VClosure(environment, expr_desc)
   | VMod(environment)
+  | VRecord(list((name, value)))
 ;
 
 let value_of_lit = fun
@@ -26,40 +27,52 @@ let value_of_lit = fun
   | Unit      => VUnit
 ;
 
-let rec string_of_value = fun
-  | VInt(v)       => string_of_int(v)
-  | VFloat(v)     => string_of_float(v)
-  | VString(v)    => v
-  | VBool(v)      => string_of_bool(v)
-  | VUnit         => "()"
-  | VList([])     => "[]"
+let rec string_of_value = (~level=0, value) => {
+  let indent = indent(level);
+  switch (value) {
+  | VInt(v)       => [%string "%{indent}%{string_of_int v}"]
+  | VFloat(v)     => [%string "%{indent}%{string_of_float v}"]
+  | VString(v)    => [%string "%{indent}%{v}"]
+  | VBool(v)      => [%string "%{indent}%{string_of_bool v}"]
+  | VUnit         => [%string "%{indent}()"]
+  | VList([])     => [%string "%{indent}[]"]
   | VList(l)      => 
-    List.map((ele) => string_of_value(ele), l) |> String.concat(", ") |> (elements) =>
-    [%string "[%{elements}]"]
+    let elements = List.map((ele) => string_of_value(~level=level+1, ele), l) |> String.concat(",\n");
+    [%string "%{indent}[\n%{elements}]"]
   | VTuple([])    => "()"
   | VTuple(l)     => 
-    List.map((ele) => string_of_value(ele), l) |> String.concat(", ") |> (elements) =>
-    [%string "(%{elements})"]
-  | VClosure(_)   => "closure"
+    let elements = List.map((ele) => string_of_value(ele), l) |> String.concat(",\n");
+    [%string "%{indent}(\n%{elements})"]
+  | VClosure(_)   => [%string "%{indent}closure"]
   | VMod(env)  => 
-    List.map(((name, ele)) => [%string "  %{name}: %{string_of_value ele}"], env) |> String.concat("\n") |> (elements) =>
-    [%string "{\n%{elements}\n}"]
-;
+    let elements = List.map(((name, ele)) => [%string "%{indent}%{name}: %{string_of_value ele}"], env) |> String.concat("\n");
+    [%string "%{indent}{\n%{elements}\n}"]
+  | VRecord(fields) =>
+    let fields = List.map(((name, ele)) => [%string "%{indent}\"%{name}\": %{string_of_value ele}"], fields) |> String.concat(",\n");
+    [%string "%{indent}{\n%{fields}\n}"];
+  };
+};
 
-let value_of_var = (env, path, name, loc) =>
+let value_of_var = (env, path, name, loc) => {
   // Attempt to find module namespace based on [path]
-  List.fold_left((acc, modname) => 
-    switch (List.assoc_opt(modname, acc)) {
-    | Some(VMod(env)) => env
-    | Some(_)         => raise(Runtime_error([%string "%{modname} is not a module!"]))
-    | None            => raise(Runtime_error([%string "Unbound module %{modname}"]))
-    }
-  , env, path)  |> (mod_ns) =>
+  let mod_ns = 
+    List.fold_left((acc, modname) => 
+      switch (List.assoc_opt(modname, acc)) {
+      | Some(VMod(env)) => env
+      | Some(_)         => raise(Runtime_error([%string "%{modname} is not a module!"]))
+      | None            => raise(Runtime_error([%string "Unbound module %{modname}"]))
+      }
+    , env, path);
+
   // Attempt to find [name] in module namespace
   switch (List.assoc_opt(name, mod_ns)) {
   | Some(v) => v
   | None    => raise(Runtime_error([%string "Unbound value %{string_of_expr ~print_loc:true (mk_expr ~loc (EVar(path, name)))}"]))
   }; 
+};
+
+let rm_record_duplicates = (l) =>
+  List.rev @@ List.fold_left((acc, (name, _) as ele) => List.assoc_opt(name, acc) == None ? [ele, ...acc] : acc, [], l);
 
 /** [bind_pat_value(pat, v)] returns a list of tuples of type [(name, value)] containing 
     the bindings to be added to the environment where each variable in the {pattern} [pat] 
@@ -117,6 +130,17 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
         eval_non_let(env, e) |> (_) => eval_non_let(env, rest)
       }
     | EPrim(prim) => eval_prim(env, prim)
+    | ERecSelect(e, name) =>
+      switch (eval_non_let(env, e)) {
+      | VRecord(fields) => List.assoc(name, fields)
+      | _ => raise(Runtime_error("ERecSelect: base is not a record"))
+      }
+    | ERecExtend(name, e, base) =>
+      switch (eval_non_let(env, base)) {
+      | VRecord(fields) => VRecord(rm_record_duplicates @@ [(name, eval_non_let(env, e)), ...fields])
+      | _ => raise(Runtime_error("ERecExtend: base is not a record"))
+      }
+    | ERecEmpty => VRecord([])
     }
   and eval_prim = (env, prim) =>
     switch (prim) {

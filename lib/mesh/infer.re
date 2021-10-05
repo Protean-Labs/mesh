@@ -430,7 +430,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
     | EMod(name, exprs) => 
       let (_, new_env:Env.t) = infer_exn({...env, tvars:[]}, level, exprs, []);
       (TConst("unit"), Env.extend(env,[],name ,TMod(new_env.tvars)))
-    // | _ => raise(Type_error("infer not implmented"))
+    | _ => raise(Type_error("infer not implmented"))
     }
     and typ_of_primitive = (prim, env) => switch (prim) {
       | PListCons(el_expr, list_expr) =>

@@ -19,7 +19,7 @@ let parse_file = (source) => {
   let supplier = () => Mesh_lexer.token(lexer);
 
   try(R.ok @@ Parser.MenhirInterpreter.loop(supplier, parser)) {
-  | Lexer.SyntaxError(err) => R.error_msg(err)
+  | Lexer.Syntax_error(err) => R.error_msg(err)
   | exn => R.error_msg(Printexc.to_string(exn) ++ ": " ++ Printexc.get_backtrace())
   }
 };

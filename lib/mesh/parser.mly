@@ -13,6 +13,7 @@
 %token <int>    INT
 %token <float>  FLOAT
 %token <string> STRING
+%token <string * string> EXTENSION
 
 %token <string> VAR
 %token <string> MOD
@@ -65,25 +66,34 @@ expr:
   
   | EXTERNAL p = simple_pattern EQUALS v = STRING           
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, primitive_of_name v)) }
-  
-  | e = fun_def                                             { e }
-  | e = fun_app                                             { e }
-  | e = value_path                                          { e }
-  | lit = literal                                           
-    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELit lit) }
-  
-  | e = e_list                                              { e }
-  | e = tuple                                               { e }
-  | op = OPERATOR e = expr                                  
+    
+  | op = OPERATOR e = expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EVar ([], op)), e)) }
   
-  | e1 = expr op = OPERATOR e2 = expr                       
+  | e1 = expr op = OPERATOR e2 = expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EApp (mk_expr (EVar ([], op)), e1)), e2)) }
   
   | MODULE modname = MOD EQUALS
-    LBRACE body = structure RBRACE                          
+    LBRACE body = structure RBRACE
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EMod (modname, body)) }
+
+  | ext = EXTENSION
+    { let (name, body) = ext in
+      match name with
+      | "graphql" -> 
+        let query = Extensions.Graphql.(parse @@ lex(body)) in
+        mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EGraphql query) 
+      | name -> raise (Parsing_error [%string "Unknown extension %{name}"]) }
+
+  | lit = literal                                           
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELit lit) }
+
   | e = braced_expr                                         { e }
+  | e = fun_def                                             { e }
+  | e = fun_app                                             { e }
+  | e = value_path                                          { e }
+  | e = e_list                                              { e }
+  | e = tuple                                               { e }
 
 fun_def:
   | UNIT ARROW e = expr                                           

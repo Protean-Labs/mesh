@@ -40,6 +40,7 @@ and expr_desc =
   | ESeq(expr, expr)
   | EMod(name, list(expr))
   | EPrim(primitive)
+  | EGraphql(Extensions.Graphql.t)
 and primitive = 
   | PListCons(expr, expr)
   | PIntAdd(expr, expr)

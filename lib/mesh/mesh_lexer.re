@@ -239,6 +239,7 @@ let string_of_token = fun
   | VAR(s) => [%string "VAR %{s}"]
   | MOD(s) => [%string "MOD %{s}"]
   | OPERATOR(s) => [%string "OPERATOR %{s}"]
+  | EXTENSION((name, body)) => [%string "EXTENSION %{name} %{body}"]
   | LET => "LET"
   | MODULE => "MODULE"
   | ES6_FUN => "ES6_FUN"

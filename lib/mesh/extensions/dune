@@ -1,0 +1,4 @@
+(library
+ (name extensions)
+ (libraries easy_logging rresult yojson graphql_ppx.base)
+ (preprocess (pps ppx_string)))

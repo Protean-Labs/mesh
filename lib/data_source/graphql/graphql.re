@@ -1,8 +1,5 @@
 exception Graphql_error(string);
 
-// open Rresult;
-// open Lwt.Infix;
-
 module Client = Client;
 
 let test = Client.validate(Uri.of_string("https://countries.trevorblades.com/"), {|
@@ -20,8 +17,7 @@ let test = Client.validate(Uri.of_string("https://countries.trevorblades.com/"),
   toplevel:
 
   Def_operation({
-    variable_definitions:
-      option(Source_pos.spanning(Graphql_ast.variable_definitions)),
+    variable_definitions: option(Source_pos.spanning(Graphql_ast.variable_definitions)),
     has_error: bool,
     operation: Source_pos.spanning(Graphql_ast.operation),
     inner: t,

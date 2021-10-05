@@ -1,7 +1,7 @@
 {
   open Parser
 
-  exception SyntaxError of string
+  exception Syntax_error of string
 
   let char_for_backslash = function
     | 'n' -> '\010'
@@ -63,10 +63,12 @@ rule token = parse
 | int as lit        { INT (int_of_string lit) }
 | float as lit      { FLOAT (float_of_string lit) }
 | '"'               { read_string (Buffer.create 16) lexbuf }
+| "```" var as varname
+  { read_extension (String.sub varname 3 (String.length varname - 3)) (Buffer.create 16) lexbuf }
 | var as varname    { VAR (varname) }
 | mod as modname    { MOD (modname) }
 | eof               { EOF }
-| _                 { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+| _                 { raise (Syntax_error ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 
 and read_string buf = parse
 | '"'               { STRING (Buffer.contents buf) }
@@ -74,5 +76,11 @@ and read_string buf = parse
   { Buffer.add_char buf (char_for_backslash c);
     read_string buf lexbuf }
 | [^ '"' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_string buf lexbuf}
-| eof               { raise (SyntaxError ("String is not terminated")) }
-| _                 { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+| eof               { raise (Syntax_error ("String is not terminated")) }
+| _                 { raise (Syntax_error ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+
+and read_extension name buf = parse
+| "```"             { EXTENSION (name, Buffer.contents buf) }
+| [^ '`' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_extension name buf lexbuf}
+| eof               { raise (Syntax_error ("Extension block is not terminated")) }
+| _                 { raise (Syntax_error ("Illegal extension block character: " ^ Lexing.lexeme lexbuf)) }

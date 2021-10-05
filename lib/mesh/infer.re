@@ -146,6 +146,7 @@ let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
     | TApp(fun_typ, param_typ) => {f(fun_typ); f(param_typ)}
     | TFun(param_typ, return_typ) => {f(param_typ); f(return_typ)}
     | TList(list_typ) => f(list_typ)
+    | TTuple(l) => List.iter(f, l)
     | TRec(row) => f(row)
     | TRowExtend(_, field_typ, row) => { f(field_typ); f(row);}
     | TRowEmpty => ()

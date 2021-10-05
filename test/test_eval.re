@@ -71,6 +71,14 @@ let test_cases = [
   ("external f = \"float_div\";
     f(4., 2.);",                            [VFloat(2.)]),
 
+  // Operator binding
+  ("external add = \"int_add\";
+    let (+) = add;
+    1 + 2;",                                [VInt(3)]),
+  ("external add = \"int_add\";
+    let (.++) = add(1);
+    ++2;",                                  [VInt(3)]),
+
   // Records
   ("{};",                                   [VRecord([])]),
   ("{a: 1, b: 2, c: 3};",                   [VRecord([("c", VInt(3)), ("b", VInt(2)), ("a", VInt(1))])]),

@@ -130,6 +130,16 @@ let test_cases = [
     f2(\"hello\");",
     [TConst("unit"), TConst("unit"), TConst("int")]
   ),
+  ("external add = \"int_add\";
+    let (+) = add;
+    1 + 2;",                                
+    [TConst("unit"), TConst("unit"), TConst("int")]
+  ),
+  ("external add = \"int_add\";
+    let (.++) = add(1);
+    ++2;",                                  
+    [TConst("unit"), TConst("unit"), TConst("int")]
+  ),
   (
     "let x = {a:1, b:\"hello\"}; x;",
     [TConst("unit"), TRec((TRowExtend("b", TConst("string"), TRowExtend("a", TConst("int"), TRowEmpty))))]

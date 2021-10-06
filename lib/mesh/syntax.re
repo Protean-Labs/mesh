@@ -39,6 +39,7 @@ and expr_desc =
   | ERecEmpty
   | ESeq(expr, expr)
   | EMod(name, list(expr))
+  | EOpen(list(name), name)
   | EPrim(primitive)
 and primitive = 
   // Int primitive functions

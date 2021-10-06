@@ -24,6 +24,7 @@
 %token MODULE
 %token ES6_FUN
 %token EXTERNAL
+%token OPEN
 
 %token SEMICOLON
 %token COLON
@@ -61,7 +62,9 @@ file:
   | e = expr SEMICOLON rest = file                          { e :: rest }
 
 expr:
-  | e = op_bind                                             { e }
+  | OPEN mpath = module_path                                
+    { fmt_module_path mpath }
+  
   | LET p = simple_pattern EQUALS e = expr                  
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, e)) }
 
@@ -82,6 +85,7 @@ expr:
   | e = expr DOT field = LIDENT
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ERecSelect (e, field)) }
 
+  | e = op_bind                                             { e }
   | e = eliteral                                            { e }
   | e = braced_expr                                         { e }
   | e = fun_def                                             { e }
@@ -167,6 +171,11 @@ value_path:
 
   | modname = UIDENT DOT vpath = value_path
     { fmt_value_path vpath modname (mklocation $symbolstartpos $endpos) }
+
+module_path:
+  | modname = UIDENT                                                   { [(modname, (mklocation $symbolstartpos $endpos))] }
+  | modname = UIDENT DOT mpath = module_path                           { (modname, (mklocation $symbolstartpos $endpos)) :: mpath }
+
 
 // ================================================================
 // Modules

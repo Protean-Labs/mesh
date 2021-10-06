@@ -46,6 +46,7 @@ rule token = parse
 | "module"          { MODULE }
 | "esfun"           { ES6_FUN }
 | "external"        { EXTERNAL }
+| "open"            { OPEN }
 
 | operator as op    { OPERATOR (op) }
 

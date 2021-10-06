@@ -141,6 +141,25 @@ let test_cases = [
     [TConst("unit"), TConst("unit"), TConst("int")]
   ),
   (
+    "external f = \"int_add\"; 
+    let x = 1; 
+    module M = { 
+      let y = x; 
+    }; 
+    f(x, M.y);",
+    [TConst("unit"),TConst("unit"),TConst("unit"),TConst("int")]
+  ),
+  (
+    "external f = \"int_add\";
+    let x = 1; 
+    module M = { 
+      let x = (); 
+    }; 
+    open M; 
+    x;",
+    [TConst("unit"),TConst("unit"),TConst("unit"),TConst("unit"),TConst("unit")]
+  ),
+  (
     "let x = {a:1, b:\"hello\"}; x;",
     [TConst("unit"), TRec((TRowExtend("b", TConst("string"), TRowExtend("a", TConst("int"), TRowEmpty))))]
   ),

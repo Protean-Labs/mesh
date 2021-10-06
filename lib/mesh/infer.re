@@ -388,8 +388,13 @@ let rec infer_exn = (env, level, exprs, typs) => {
     | EPrim(prim) =>
       typ_of_primitive(prim, env)
     | EMod(name, exprs) => 
-      let (_, new_env:Env.t) = infer_exn({...env, tvars:[]}, level, exprs, []);
-      (TConst("unit"), Env.extend(env,[],name ,TMod(new_env.tvars)))
+      infer_exn(env, level, exprs, []) |> ((_, mod_env:Env.t)) =>
+      (TConst("unit"), Env.extend(env,[],name ,TMod(mod_env.tvars)))
+    | EOpen(path, modname) => 
+      switch (Env.lookup(env, path, modname, expr.pexpr_loc)) {
+        | TMod(mod_env) => (TConst("unit"),Env.extend_fold(env, [], mod_env))
+        | _ => raise(TypeError([%string "open %{modname}: %{modname} is not a module!"]))
+      }
     // | _ => raise(TypeError("infer not implmented"))
     }
     and typ_of_primitive = (prim, env) => switch (prim) {

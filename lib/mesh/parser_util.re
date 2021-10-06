@@ -76,12 +76,20 @@ let fmt_tuple = (ele, loc) =>
 let fold_record = (base, fields) =>
   List.fold_left((acc, (name, expr, loc)) => mk_expr(~loc, ERecExtend(name, expr, acc)), base, fields);
 
-let fmt_value_path = (var, modname, loc) =>
-  switch (var.pexpr_desc) {
+let fmt_value_path = (expr, modname, loc) =>
+  switch (expr.pexpr_desc) {
   | EVar(path, name) => mk_expr(~loc, EVar([modname, ...path], name))
   | _                => raise(Parsing_error("fmt_value_path: value is not EVar"))
   };
 
+let fmt_module_path = (mpath) =>
+  switch (List.rev(mpath)) {
+  | [(modname, loc)]           => mk_expr(~loc, EOpen([], modname))
+  // TODO: Include loc data in EOpen path
+  | [(modname, loc), ...mpath] => mk_expr(~loc, EOpen(List.map(fst, mpath), modname))
+  | []                  => raise(Parsing_error("fmt_module_path: empty module path"))
+  };
+  
 // TODO: Decide if the functions below should be used to enforce operator constraints on 
 // the number of arguments (i.e.: should we enforce the constraint that prefix ops can
 // only be binded to functions with one argument? Likewise for infix ops and functions

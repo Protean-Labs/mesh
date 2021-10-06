@@ -18,6 +18,7 @@ let rec assert_expr_equal = (expr, expr') =>
   | (ESeq(e, rest), ESeq(e', rest'))          => assert_expr_equal(e, e') && assert_expr_equal(rest, rest')
   | (EMod(name, body), EMod(name', body'))    => (name == name') && List.fold_left2((acc, ele, ele') => acc && assert_expr_equal(ele, ele'), true, body, body')
   | (EPrim(prim), EPrim(prim'))               => assert_prim_equal(prim, prim')
+  | (EOpen(path, modname), EOpen(path', modname')) => (path == path') && (modname == modname')
   | (ERecExtend(name, e1, e2), ERecExtend(name', e1', e2')) => 
     (name == name') && assert_expr_equal(e1, e1') && assert_expr_equal(e2, e2')
   | (ERecSelect(e, name), ERecSelect(e', name')) => (name == name') && assert_expr_equal(e, e')
@@ -170,6 +171,8 @@ let test_cases = [
     };",                                            mk_expr(EMod("M", [mk_expr(ELet(mk_pvar("x"), mk_elit_int(2)))]))),
   ("M.x;",                                          mk_expr(EVar(["M"], "x"))),
   ("M1.M2.x;",                                      mk_expr(EVar(["M1", "M2"], "x"))),
+  ("open M;",                                       mk_expr(EOpen([], "M"))),
+  ("open M1.M2;",                                   mk_expr(EOpen(["M1"], "M2"))),
   
   // External functions
   ("external f = \"int_add\";",                     mk_expr(ELet(mk_pvar("f"), mk_expr(EFun(mk_pvar("a"), mk_expr(EFun(mk_pvar("b"), mk_expr(EPrim(PIntAdd(mk_evar("a"), mk_evar("b"))))))))))),

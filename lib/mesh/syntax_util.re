@@ -72,6 +72,10 @@ let rec string_of_expr = (~level=0, ~print_loc=false, expr) => {
   | EMod(name, body)    => 
     List.map((ele) => string_of_expr(~level=level + 1, ~print_loc, ele), body) |> String.concat("\n") |> (elements) =>    
     [%string "%{indent}(EMod %{maybe_print_loc print_loc expr} %{name}\n%{elements})"]
+  | EOpen([], name)      => [%string "%{indent}(EOpen %{maybe_print_loc print_loc expr} %{name})"]
+  | EOpen(path, name)    => 
+    String.concat(".", path)  |> (path) =>
+    [%string "%{indent}(EOpen %{maybe_print_loc print_loc expr} %{path}.%{name})"]
   | EPrim(prim)         => string_of_primitive(~level, prim)
   }
 }

@@ -9,13 +9,14 @@
 
 // Literals
 %token UNIT
+%token EMPTY
 %token <bool>   BOOL
 %token <int>    INT
 %token <float>  FLOAT
 %token <string> STRING
 
-%token <string> VAR
-%token <string> MOD
+%token <string> LIDENT
+%token <string> UIDENT
 
 %token <string> OPERATOR
 
@@ -32,6 +33,7 @@
 %token LBRACE RBRACE
 %token COMMA
 %token DOT
+// %token BANG
 
 %token UNDERSCORE
 %token EQUALS
@@ -43,9 +45,8 @@
 %left OPERATOR
 
 %right EQUALS
-// %right ARROW
 %nonassoc UNIT
-// %nonassoc ES6_FUN
+%nonassoc EMPTY
 
 // %start <Syntax.expr> expr
 %start <Syntax.expr list> file
@@ -66,36 +67,46 @@ expr:
   
   | LET p = simple_pattern EQUALS e = expr                  
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, e)) }
+
   
   | EXTERNAL p = simple_pattern EQUALS v = STRING           
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, primitive_of_name v)) }
   
-  | e = fun_def                                             { e }
-  | e = fun_app                                             { e }
-  | e = value_path                                          { e }
-  | lit = literal                                           
-    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELit lit) }
-  
-  | e = e_list                                              { e }
-  | e = tuple                                               { e }
   | op = OPERATOR e = expr                                  
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EVar ([], op)), e)) }
   
   | e1 = expr op = OPERATOR e2 = expr                       
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EApp (mk_expr (EVar ([], op)), e1)), e2)) }
   
-  | MODULE modname = MOD EQUALS
+  | MODULE modname = UIDENT EQUALS
     LBRACE body = structure RBRACE                          
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EMod (modname, body)) }
+
+  | e = expr DOT field = LIDENT
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ERecSelect (e, field)) }
+
+  | e = op_bind                                             { e }
+  | e = eliteral                                            { e }
   | e = braced_expr                                         { e }
+  | e = fun_def                                             { e }
+  | e = fun_app                                             { e }
+  | e = value_path                                          { e }  
+  | e = e_list                                              { e }
+  | e = tuple                                               { e }
+
+op_bind:
+  | LET LPAREN op = OPERATOR RPAREN EQUALS e = expr
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (mk_pvar op, e)) }
+  | LET LPAREN DOT op = OPERATOR RPAREN EQUALS e = expr
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (mk_pvar op, e)) }
 
 fun_def:
-  | UNIT ARROW e = expr                                           
+  | UNIT ARROW e = expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (mk_pat (PLit Unit), e)) }
-  | ES6_FUN p = simple_pattern ARROW e = expr                     
+  | ES6_FUN p = simple_pattern ARROW e = expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EFun (p, e)) }
   | ES6_FUN LPAREN p = separated_nonempty_list(COMMA, simple_pattern) 
-    RPAREN ARROW e = expr                                         
+    RPAREN ARROW e = expr
     { fold_fun e p }
 
 braced_expr:
@@ -107,13 +118,13 @@ record_expr:
   | fields = separated_nonempty_list(COMMA, lbl_expr) COMMA?                          { fold_record (mk_expr ERecEmpty) fields }
 
 lbl_expr:
-  | varname = VAR COLON e = expr                                    { (varname, e, (mklocation $symbolstartpos $endpos)) }
+  | varname = LIDENT COLON e = expr                                    { (varname, e, (mklocation $symbolstartpos $endpos)) }
 
 fun_app:
-  | e = expr UNIT                                                   
+  | e = expr UNIT
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (e, mk_elit_unit ())) }
-  
-  | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN       { fold_app e args }
+  | e = expr LPAREN args = separated_list(COMMA, expr) RPAREN
+    { fold_app e args }
 
 /** Note: Due to the fact that we are reusing the `tuple` rule for both tuple expressions (i.e.: ETuple)
     as well as for function argument tuple patterns (i.e.: PTuple) we cannot immediately return the ETuple. 
@@ -123,23 +134,29 @@ fun_app:
     argument is a tuple (instead of two seperate arguments). Therefore, the `tuple` grammar rule only returns 
     the list of expressions `t`, which is transformed according to the parent rule. */
 tuple: 
-  | LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN          
+  | LPAREN t = separated_nonempty_list(COMMA, expr) RPAREN
     { fmt_tuple t (mklocation $symbolstartpos $endpos) }
 
 e_list:
-  | LBRACK l = lseparated_list(COMMA, expr) COMMA DOTDOTDOT e = expr RBRACK  
+  | LBRACK l = lseparated_list(COMMA, expr) COMMA DOTDOTDOT e = expr RBRACK
     { fold_cons l e (mklocation $symbolstartpos $endpos) }
   
-  | LBRACK l = lseparated_list(COMMA, expr) RBRACK                           
+  | LBRACK l = lseparated_list(COMMA, expr) RBRACK
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EList l) }
 
 seq_expr:
   | e = seq_expr_no_seq                                             { e }
-  | e = expr SEMICOLON rest = seq_expr                              
+  | e = expr SEMICOLON rest = seq_expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ESeq (e, rest)) }
 
 seq_expr_no_seq:
   | e = expr SEMICOLON?                                             { e }
+
+eliteral:
+  | lit = literal
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELit lit) }
+  | EMPTY
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) ERecEmpty }
 
 literal:
   | v = BOOL     { Bool v }
@@ -149,15 +166,15 @@ literal:
   | UNIT         { Unit }
 
 value_path:
-  | varname = VAR                                                   
+  | varname = LIDENT
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EVar ([], varname)) }
 
-  | modname = MOD DOT vpath = value_path                            
+  | modname = UIDENT DOT vpath = value_path
     { fmt_value_path vpath modname (mklocation $symbolstartpos $endpos) }
 
 module_path:
-  | modname = MOD                                                   { [(modname, (mklocation $symbolstartpos $endpos))] }
-  | modname = MOD DOT mpath = module_path                           { (modname, (mklocation $symbolstartpos $endpos)) :: mpath }
+  | modname = UIDENT                                                   { [(modname, (mklocation $symbolstartpos $endpos))] }
+  | modname = UIDENT DOT mpath = module_path                           { (modname, (mklocation $symbolstartpos $endpos)) :: mpath }
 
 
 // ================================================================
@@ -177,17 +194,17 @@ simple_pattern:
   | p = simple_pattern_not_ident                                    { p }
 
 simple_pattern_ident:
-  | varname = VAR                                                   
+  | varname = LIDENT
     { mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PVar varname) }
 
 simple_pattern_not_ident:
-  | UNDERSCORE                                                          
+  | UNDERSCORE
     { mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PAny) }
   
-  | lit = literal                                                       
+  | lit = literal
     { mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PLit lit) }
 
-  | LPAREN t = separated_nonempty_list(COMMA, simple_pattern) RPAREN    
+  | LPAREN t = separated_nonempty_list(COMMA, simple_pattern) RPAREN
     { if List.length t == 1 
       then List.hd t 
       else mk_pat ~loc:(mklocation $symbolstartpos $endpos) (PTuple t) }

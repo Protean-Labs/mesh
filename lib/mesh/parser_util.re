@@ -89,3 +89,25 @@ let fmt_module_path = (mpath) =>
   | [(modname, loc), ...mpath] => mk_expr(~loc, EOpen(List.map(fst, mpath), modname))
   | []                  => raise(Parsing_error("fmt_module_path: empty module path"))
   };
+  
+// TODO: Decide if the functions below should be used to enforce operator constraints on 
+// the number of arguments (i.e.: should we enforce the constraint that prefix ops can
+// only be binded to functions with one argument? Likewise for infix ops and functions
+// with two arguments). For now, do not enforce the constraint and assume user is not smart.
+
+let is_fun = 
+  fun
+  | EFun(_) => true
+  | _ => false;
+
+let check_infix_op_value = (e) => 
+  switch (e.pexpr_desc) {
+  | EFun(_, {pexpr_desc: EFun(_, body), _}) when !is_fun(body.pexpr_desc) => e
+  | _ => raise(Parsing_error("Only functions with two arguments can be binded to infix operators"))
+  };
+
+let check_prefix_op_value = (e) =>
+  switch (e.pexpr_desc) {
+  | EFun(_, body) when !is_fun(body.pexpr_desc) => e
+  | _ => raise(Parsing_error("Only functions with one argument can be binded to prefix operators"))
+  };

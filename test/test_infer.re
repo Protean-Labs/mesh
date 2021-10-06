@@ -130,6 +130,16 @@ let test_cases = [
     f2(\"hello\");",
     [TConst("unit"), TConst("unit"), TConst("int")]
   ),
+  ("external add = \"int_add\";
+    let (+) = add;
+    1 + 2;",                                
+    [TConst("unit"), TConst("unit"), TConst("int")]
+  ),
+  ("external add = \"int_add\";
+    let (.++) = add(1);
+    ++2;",                                  
+    [TConst("unit"), TConst("unit"), TConst("int")]
+  ),
   (
     "external f = \"int_add\"; 
     let x = 1; 

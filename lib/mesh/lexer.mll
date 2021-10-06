@@ -11,10 +11,10 @@ let alpha = ['a'-'z' 'A'-'Z']
 let int     = '-'? digit+
 let float   = '-'? digit+ '.' digit*
 let string  = (alpha|digit|'_')*
-let var     = ['a'-'z'] string 
-let mod     = ['A'-'Z'] string
+let lident     = ['a'-'z'] string 
+let uident     = ['A'-'Z'] string
 
-let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@')+
+let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@' | '~')+
 
 let white   = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
@@ -50,13 +50,14 @@ rule token = parse
 
 (* Literals *)
 | "()"              { UNIT }
+| "{}"              { EMPTY }
 | "true"            { BOOL (true) }
 | "false"           { BOOL (false) }
 | int as lit        { INT (int_of_string lit) }
 | float as lit      { FLOAT (float_of_string lit) }
 | '"'               { read_string (Buffer.create 16) lexbuf }
-| var as varname    { VAR (varname) }
-| mod as modname    { MOD (modname) }
+| lident as lident  { LIDENT (lident) }
+| uident as uident  { UIDENT (uident) }
 | eof               { EOF }
 | _                 { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 

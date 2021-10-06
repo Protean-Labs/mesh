@@ -18,9 +18,9 @@ module Stdlib = {
   module List = {
     external cons = "list_cons";
     external map = "list_map";
-    external mapi = "list_mapi";
-    external foldl = "list_foldl";
-    external foldr = "list_foldr";
+    // external mapi = "list_mapi";
+    // external foldl = "list_foldl";
+    // external foldr = "list_foldr";
   };
 
   let cons = List.cons;
@@ -29,52 +29,13 @@ module Stdlib = {
   let (-) = Int.sub;
   let (*) = Int.mul;
   let (/) = Int.div;
+
+  let (+.) = Float.add;
+  let (-.) = Float.sub;
+  let (*.) = Float.mul;
+  let (/.) = Float.div;
 };
 
-module GraphQL = {
-  external execute = "graphql_execute";
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-external f = \"int_add\"; 
-let x = 1; 
-
-module M = { 
-  let y = x;
-};
-
-open M; 
-f(x, y);
-
-[
-  ("y", EVar("x")),
-  ("M", [("y", EVar("x"))]),
-  ("x", ELit(Int(1))),
-  ("f", EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(EVar("a"), EVar("b"))))))
-]
-
-[
-  ("x", ELit(Int(1))),
-  ("f", EFun(PVar("a"), EFun(PVar("b"), EPrim(PIntAdd(EVar("a"), EVar("b"))))))
-]
+// module GraphQL = {
+//   external execute = "graphql_execute";
+// };

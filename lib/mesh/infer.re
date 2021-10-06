@@ -392,52 +392,91 @@ let rec infer_exn = (env, level, exprs, typs) => {
       (TConst("unit"), Env.extend(env,[],name ,TMod(new_env.tvars)))
     // | _ => raise(TypeError("infer not implmented"))
     }
-    and typ_of_primitive = (prim, env) => switch (prim) {
+    and typ_of_primitive = (prim, env) => 
+      switch (prim) {
+      // Int primitive functions
+      | PIntAdd(a_expr, b_expr) => 
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs);
+        (TConst("int"), env)
+      | PIntSub(a_expr, b_expr) =>
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs); 
+        (TConst("int"), env)
+      | PIntMul(a_expr, b_expr) => 
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs);
+        (TConst("int"), env)
+      | PIntDiv(a_expr, b_expr) =>
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs); 
+        (TConst("int"), env)
+      | PIntNeg(a_expr) =>
+        let (typs, _) = infer_exn(env, level, [a_expr], []);
+        List.iter(unify(env.new_var, TConst("int")), typs); 
+        (TConst("int"), env)
+
+      // Float primitive functions
+      | PFloatAdd(a_expr, b_expr) => 
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs);
+        (TConst("float"), env)
+      | PFloatSub(a_expr, b_expr) => 
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs);
+        (TConst("float"), env)
+      | PFloatMul(a_expr, b_expr) => 
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs);
+        (TConst("float"), env)
+      | PFloatDiv(a_expr, b_expr) => 
+        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs);
+        (TConst("float"), env)
+      | PFloatNeg(a_expr) =>
+        let (typs, _) = infer_exn(env, level, [a_expr], []);
+        List.iter(unify(env.new_var, TConst("float")), typs); 
+        (TConst("float"), env)
+
+      // List primitive functions
       | PListCons(el_expr, list_expr) =>
-        let (typs, _) = infer_exn(env, level, [el_expr, list_expr], []) |> ((inferred, nenv)) =>
-        switch (inferred) {
-          | [_, _] as l => (l, nenv)
-          | _ => raise(TypeError("cons_list wrong number of arguments"))
-        };
+        let (typs, _) = 
+          infer_exn(env, level, [el_expr, list_expr], []) |> ((inferred, nenv)) =>
+          switch (inferred) {
+            | [_, _] as l => (l, nenv)
+            | _ => raise(TypeError("PListCons: wrong number of arguments"))
+          };
+
         let typ = List.hd(typs);
+
         List.iter2(
           unify(env.new_var), 
           typs,
           [typ, TList(typ)]
         );
+        
         (TList(typ), env);
-      | PIntAdd(a_expr, b_expr)       => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("int")), typs);
-        (TConst("int"), env)
-      | PIntSub(a_expr, b_expr)                 =>
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("int")), typs); 
-        (TConst("int"), env)
-      | PIntMul(a_expr, b_expr)                 => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("int")), typs);
-        (TConst("int"), env)
-      | PIntDiv(a_expr, b_expr)                 =>
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("int")), typs); 
-        (TConst("int"), env)
-      | PFloatAdd(a_expr, b_expr)               => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("float")), typs);
-        (TConst("float"), env)
-      | PFloatSub(a_expr, b_expr)               => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("float")), typs);
-        (TConst("float"), env)
-      | PFloatMul(a_expr, b_expr)               => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("float")), typs);
-        (TConst("float"), env)
-      | PFloatDiv(a_expr, b_expr)               => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("float")), typs);
-        (TConst("float"), env)
+      | PListMap(f_expr, list_expr) =>
+        let (typs, _) = 
+          infer_exn(env, level, [f_expr, list_expr], []) |> ((inferred, nenv)) =>
+          switch (inferred) {
+          | [_, _] as l => (l, nenv)
+          | _ => raise(TypeError("PListMap: wrong number of arguments"))
+          };
+
+        let (t1, t2) = 
+          switch (List.hd(typs)) {
+          | TFun(t1, t2) => (t1, t2)
+          | _ => raise(TypeError("PListMap: first argument is not a function"))
+          };
+
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TFun(t1, t2), TList(t1)]
+        );
+
+        (TList(t2), env);
     };
 
   switch (exprs) {
@@ -447,7 +486,6 @@ let rec infer_exn = (env, level, exprs, typs) => {
   | [] => (typs, env)
   }
 };
-
 
 let infer = (env, level, e) =>
   try (R.ok @@ infer_exn(env, level, e, [])) {

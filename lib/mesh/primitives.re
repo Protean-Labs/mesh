@@ -3,11 +3,20 @@ open Syntax_util;
 
 exception Invalid_primitive(string);
 
+let rec mk_narg_primitive = (n, expr) =>
+  switch (n) {
+  | 0 => mk_expr(EFun(mk_pvar("arg0"), expr))
+  | n => mk_expr(EFun(mk_pvar([%string "arg%{string_of_int n}"]), mk_narg_primitive(n-1, expr)))
+  };
+
 let mk_1arg_primitive = (expr) =>
   mk_expr(EFun(mk_pvar("a"), expr));
 
 let mk_2args_primitive = (expr) =>
   mk_expr(EFun(mk_pvar("a"), mk_expr(EFun(mk_pvar("b"), expr))));
+
+let mk_3args_primitive = (expr) =>
+  mk_expr(EFun(mk_pvar("a"), mk_expr(EFun(mk_pvar("b"), mk_expr(EFun(mk_pvar("c"), expr))))));
 
 let primitive_of_name = fun
   // Int primitive functions
@@ -27,12 +36,12 @@ let primitive_of_name = fun
   // List primitive functions
   | "list_cons"   => mk_2args_primitive(mk_expr(EPrim(PListCons(mk_evar("a"), mk_evar("b")))))
   | "list_map"    => mk_2args_primitive(mk_expr(EPrim(PListMap(mk_evar("a"), mk_evar("b")))))
-  | "list_mapi"   => mk_2args_primitive(mk_expr(EPrim(PListMapi(mk_evar("a"), mk_evar("b")))))
-  | "list_foldl"  => mk_2args_primitive(mk_expr(EPrim(PListFoldl(mk_evar("a"), mk_evar("b")))))
-  | "list_foldr"  => mk_2args_primitive(mk_expr(EPrim(PListFoldr(mk_evar("a"), mk_evar("b")))))
+  // | "list_mapi"   => mk_2args_primitive(mk_expr(EPrim(PListMapi(mk_evar("a"), mk_evar("b")))))
+  // | "list_foldl"  => mk_3args_primitive(mk_expr(EPrim(PListFoldl(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
+  // | "list_foldr"  => mk_3args_primitive(mk_expr(EPrim(PListFoldr(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
 
   // GraphQL
-  | "graphql_execute" => mk_2args_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a"), mk_evar("b")))))
+  // | "graphql_execute" => mk_2args_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a"), mk_evar("b")))))
   
   | name          => raise(Invalid_primitive(name))
 ;

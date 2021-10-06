@@ -93,6 +93,17 @@ let test_cases = [
     let r2 = {...r, a: 3};
     r2.a;",                                 [VInt(3)]),
 
+  // Stdlib
+  ("1 + 2;",                                [VInt(3)]),
+  ("3 - 2;",                                [VInt(1)]),
+  ("3 * 2;",                                [VInt(6)]),
+  ("4 / 2;",                                [VInt(2)]),
+
+  ("1.0 +. 2.0;",                           [VFloat(3.0)]),
+  ("3.0 -. 2.0;",                           [VFloat(1.0)]),
+  ("3.0 *. 2.0;",                           [VFloat(6.0)]),
+  ("3.0 /. 2.0;",                           [VFloat(1.5)]),
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 
@@ -104,7 +115,7 @@ let pp_value = (values) =>
   };
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Mesh.parse_file(mesh_src) >>= Mesh.Eval.eval >>| fst);
+  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Mesh.parse_eval(mesh_src) >>| fst);
 
 let suite = 
   "test_eval" >::: List.map(make_single_test, test_cases);

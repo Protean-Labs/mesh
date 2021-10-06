@@ -144,15 +144,43 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
     }
   and eval_prim = (env, prim) =>
     switch (prim) {
-    | PListCons(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (v, VList(l)) => VList([v, ...l]) | _ => raise(Runtime_error([%string "PListCons: Unexpected types"]))}
+    // Int primitive functions
     | PIntAdd(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a + b) | _ => raise(Runtime_error([%string "PIntAdd: Unexpected types"]))}
     | PIntSub(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a - b) | _ => raise(Runtime_error([%string "PIntSub: Unexpected types"]))}
     | PIntMul(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a * b) | _ => raise(Runtime_error([%string "PIntMul: Unexpected types"]))}
     | PIntDiv(e1, e2)     => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VInt(a), VInt(b)) => VInt(a / b) | _ => raise(Runtime_error([%string "PIntDiv: Unexpected types"]))}
+    | PIntNeg(e)          => switch (eval_non_let(env, e)) { | VInt(a) => VInt(-a) | _ => raise(Runtime_error([%string "PIntNeg: Unexpected types"])) }
+    // Float primitive functions
     | PFloatAdd(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a +. b) | _ => raise(Runtime_error([%string "PFloatAdd: Unexpected types"]))}
     | PFloatSub(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a -. b) | _ => raise(Runtime_error([%string "PFloatSub: Unexpected types"]))}
     | PFloatMul(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a *. b) | _ => raise(Runtime_error([%string "PFloatMul: Unexpected types"]))}
     | PFloatDiv(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a /. b) | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
+    | PFloatNeg(e)        => switch (eval_non_let(env, e)) { | VFloat(a) => VFloat(-.a) | _ => raise(Runtime_error([%string "PIntNeg: Unexpected types"])) }
+    // List primitive functions
+    | PListCons(e1, e2)   => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (v, VList(l)) => VList([v, ...l]) | _ => raise(Runtime_error([%string "PListCons: Unexpected types"]))}
+    | PListMap(e1, e2)    => 
+      switch (eval_non_let(env, e1), eval_non_let(env, e2)) { 
+      | (VClosure(env', EFun(pat, e)), VList(l)) => VList(List.map((argv) => eval_non_let(bind_pat_value(pat, argv) @ env', e), l))
+      | _ => raise(Runtime_error([%string "PListMap: Unexpected types"]))
+      }
+    // | PListMapi(e1, e2)   => 
+    //   switch (eval_non_let(env, e1), eval_non_let(env, e2)) { 
+    //   | (VClosure(env', EFun(pat, e)), VList(l)) => VList(List.map((argv) => eval_non_let(bind_pat_value(pat, argv) @ env', e), l))
+    //   | _ => raise(Runtime_error([%string "PListMap: Unexpected types"]))
+    //   }
+    // | PListFoldl(e1, e2, e3)  => 
+    //   switch (eval_non_let(env, e1), eval_non_let(env, e2), eval_non_let(env, e3)) {
+    //   | (VClosure(env', EFun(pat1, EFun(pat2, body))), v, VList(l)) => VList(List.fold_left((acc, argv) => eval_non_let(bind_pat_value(pat1, acc) @ bind_pat_value(pat2, argv) @ env', body), v, l))
+    //   | _ => raise(Runtime_error([%string "PListMap: Unexpected types"]))
+    //   }  
+    // | PListFoldr(e1, e2, e3)  => 
+    //   switch (eval_non_let(env, e1), eval_non_let(env, e2), eval_non_let(env, e3)) { 
+    //   | (VClosure(env', EFun(pat, e)), VList(l)) => VList(List.map((argv) => eval_non_let(bind_pat_value(pat, argv) @ env', e), l))
+    //   | _ => raise(Runtime_error([%string "PListMap: Unexpected types"]))
+    //   }  
+    // GraphQL primitive functions
+    // TODO: Graphql query execution
+    // | PGraphqlExec(e1, e2) => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VString(a), VGraphqlQuery(b)) =>  | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
     };
 
   let eval_let = (env, expr) =>
@@ -174,7 +202,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
   };
 };
 
-let eval = (e) => 
-  try (R.ok @@ eval_exn([], [], e)) {
+let eval = (~env=[], e) => 
+  try (R.ok @@ eval_exn([], env, e)) {
   | Runtime_error(msg) => R.error_msg(msg)
   };

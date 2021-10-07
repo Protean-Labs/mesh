@@ -97,7 +97,7 @@ and string_of_primitive = (~level=0, prim) =>
   // List primitive functions
   | PListCons(e1, e2)   => [%string "%{indent}(list_cons\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PListMap(e1, e2)    => [%string "%{indent}(list_map\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
-  // | PListMapi(e1, e2)   => [%string "%{indent}(list_mapi\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PListMapi(e1, e2)   => [%string "%{indent}(list_mapi\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   // | PListFoldl(e1, e2, e3)  => [%string "%{indent}(list_foldl\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
   // | PListFoldr(e1, e2, e3)  => [%string "%{indent}(list_foldr\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
   // GraphQL primitive functions

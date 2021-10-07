@@ -57,7 +57,7 @@ and primitive =
   // List primitive functions
   | PListCons(expr, expr)
   | PListMap(expr, expr)
-  // | PListMapi(expr, expr)
+  | PListMapi(expr, expr)
   // | PListFoldl(expr, expr, expr)
   // | PListFoldr(expr, expr, expr)
   // GraphQL primitive functions

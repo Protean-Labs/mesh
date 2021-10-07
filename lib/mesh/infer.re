@@ -5,6 +5,8 @@ open Syntax_util;
 
 exception TypeError(string);
 
+let logger = Easy_logging.Logging.make_logger("Mesh.Infer", Debug, [Cli(Debug)]);
+
 type id = int;
 type level = int;
 
@@ -469,6 +471,8 @@ let rec infer_exn = (env, level, exprs, typs) => {
           | _ => raise(TypeError("PListMap: wrong number of arguments"))
           };
 
+        logger#debug("PListMap: typs = [%s]", String.concat(", ", List.map(string_of_typ, typs)));
+
         let (t1, t2) = 
           switch (List.hd(typs)) {
           | TFun(t1, t2) => (t1, t2)
@@ -482,6 +486,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
         );
 
         (TList(t2), env);
+      | PListMapi(_) => raise(TypeError("PListMapi: not implemented"))
     };
 
   switch (exprs) {
@@ -492,7 +497,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
   }
 };
 
-let infer = (env, level, e) =>
+let infer = (~env=Env.empty, ~level=0, e) =>
   try (R.ok @@ infer_exn(env, level, e, [])) {
   | TypeError(msg) => R.error_msg(msg)
   };

@@ -46,21 +46,56 @@ let string_of_ast = (source) =>
     | Error(`Msg(msg) ) => msg
   ;
 
+// Stdlib loading
 
-let parse_infer = (source) => {
-  parse_file(source) >>= Infer.infer(Infer.Env.empty,0) |> (result) =>
-  switch (result) {
-  | Error(`Msg(msg)) => {print_endline(msg); ([], Infer.Env.empty)}
-  | Ok((typs, env)) => (typs, env)
-  }
-};
+let existing_path = (paths) =>
+  List.fold_left((acc, path) => 
+    logger#debug("Trying path %s", path) |> () =>
+    switch (acc) {
+    | Error(_) => 
+      switch (Bos.OS.Dir.exists(Fpath.v(path))) {
+      | Error(_) as err => err
+      | Ok(false) => R.error_msg("Directory not found")
+      | Ok(true) => Ok(path)
+      }
+    | Ok(_) as path => path
+    },
+    R.error_msg("Directory not found"),
+    paths
+  );
 
-let std_env = 
+let (std_env, std_tenv) = {
+  logger#debug("Location: %s", Sys.executable_name);
+
+  let paths = [
+    "../../../stdlib",
+    "stdlib",
+    [%string "%{Unix.getenv \"HOME\"}/.local/share/jupyter/kernels/mesh/stdlib"]
+  ];
+
   // TODO: Fix stdlib path
-  switch (R.bind(parse_file(read_file("../../../stdlib/stdlib.mesh")), Eval.eval)) {
-  | Ok((_, env)) => env
-  | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
-  };
+
+  (
+    switch (
+      R.bind(
+        R.bind(existing_path(paths), (path) => parse_file(read_file([%string "%{path}/stdlib.mesh"]))), 
+        Eval.eval
+      )
+    ) {
+    | Ok((_, env)) => env
+    | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
+    },
+    switch (
+      R.bind(
+        R.bind(existing_path(paths), (path) => parse_file(read_file([%string "%{path}/stdlib.mesh"]))), 
+        Infer.infer
+      )
+    ) {
+    | Ok((_, env)) => env
+    | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
+    }
+  )
+};
 
 let parse_eval = (source) => 
   R.bind(
@@ -70,3 +105,18 @@ let parse_eval = (source) =>
     ), 
     Eval.eval(~env=std_env)
   );
+
+let parse_infer = (source) =>
+  R.bind(
+    R.map((ast) => 
+      Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast], 
+      parse_file(source)
+    ), 
+    Infer.infer(~env=std_tenv)
+  );
+
+  // parse_file(source) >>= Infer.infer(Infer.Env.empty,0) |> (result) =>
+  // switch (result) {
+  // | Error(`Msg(msg)) => {print_endline(msg); ([], Infer.Env.empty)}
+  // | Ok((typs, env)) => (typs, env)
+  // }

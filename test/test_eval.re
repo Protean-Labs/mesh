@@ -111,6 +111,23 @@ let test_cases = [
   ("3.0 *. 2.0;",                           [VFloat(6.0)]),
   ("3.0 /. 2.0;",                           [VFloat(1.5)]),
 
+  ("let l = [1, 2];
+    [0, ...l];",                            [VList([VInt(0), VInt(1), VInt(2)])]),
+
+  ("let f = (x) => x - 1;
+    3 |> f;",                               [VInt(2)]),
+
+  ("let l = [1, 2, 3];
+    let f = (x) => x + 1;
+    List.map(f, l);",                       [VList([VInt(2), VInt(3), VInt(4)])]),
+
+  ("let l = [1, 2, 3];
+    List.map((x) => x + 1, l);",            [VList([VInt(2), VInt(3), VInt(4)])]),
+
+  ("let l = [1, 2, 3];
+    let f = (i, x) => x + i;
+    List.mapi(f, l);",                      [VList([VInt(1), VInt(3), VInt(5)])]),
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 

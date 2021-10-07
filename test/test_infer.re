@@ -182,22 +182,27 @@ let test_cases = [
   ),
   ("let l = [1, 2, 3];
     let f = (x) => x + 1;
-    List.map(f, l);",                       [TConst("unit"), TConst("unit"), TList(TConst("int"))]),
+    let x = List.map(f, l);
+    x;",                       [TConst("unit"), TConst("unit"), TConst("unit"), TList(TConst("int"))]),
 
   ("let l = [1, 2, 3];
-    List.map((x) => x + 1, l);",            [TConst("unit"), TList(TConst("int"))]),
+    let x = List.map((x) => x + 1, l);
+    x;",            [TConst("unit"), TConst("unit"), TList(TConst("int"))]),
 
   ("let l = [1, 2, 3];
     let f = (i, x) => x + i;
-    List.mapi(f, l);",                      [TConst("unit"), TConst("unit"), TList(TConst("int"))]),
+    let x = List.mapi(f, l);
+    x;",                      [TConst("unit"), TConst("unit"), TConst("unit"), TList(TConst("int"))]),
 
   ("let l = [1, 2, 3];
-    List.foldl((acc, x) => acc + x, 0, l);",                      
-    [TConst("unit"), TConst("int")]),
+    let x = List.foldl((acc, x) => acc + x, 0, l);
+    x;",                      
+    [TConst("unit"), TConst("unit"), TConst("int")]),
 
   ("let l = [1, 2, 3];
-    List.foldr((x, acc) => acc + x, l, 0);",                      
-    [TConst("unit"), TConst("int")]),
+    let x = List.foldr((x, acc) => acc + x, l, 0);
+    x;",                      
+    [TConst("unit"), TConst("unit"), TConst("int")]),
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 

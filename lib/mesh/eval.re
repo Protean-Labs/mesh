@@ -142,6 +142,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
       | _ => raise(Runtime_error("ERecExtend: base is not a record"))
       }
     | ERecEmpty => VRecord([])
+    | _ => raise(Runtime_error("not implemented"))
     }
   and eval_prim = (env, prim) =>
     switch (prim) {

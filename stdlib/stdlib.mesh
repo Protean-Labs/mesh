@@ -19,8 +19,8 @@ module Stdlib = {
     external cons = "list_cons";
     external map = "list_map";
     external mapi = "list_mapi";
-    // external foldl = "list_foldl";
-    // external foldr = "list_foldr";
+    external foldl = "list_foldl";
+    external foldr = "list_foldr";
   };
 
   let cons = List.cons;

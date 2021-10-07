@@ -37,8 +37,8 @@ let primitive_of_name = fun
   | "list_cons"   => mk_2args_primitive(mk_expr(EPrim(PListCons(mk_evar("a"), mk_evar("b")))))
   | "list_map"    => mk_2args_primitive(mk_expr(EPrim(PListMap(mk_evar("a"), mk_evar("b")))))
   | "list_mapi"   => mk_2args_primitive(mk_expr(EPrim(PListMapi(mk_evar("a"), mk_evar("b")))))
-  // | "list_foldl"  => mk_3args_primitive(mk_expr(EPrim(PListFoldl(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
-  // | "list_foldr"  => mk_3args_primitive(mk_expr(EPrim(PListFoldr(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
+  | "list_foldl"  => mk_3args_primitive(mk_expr(EPrim(PListFoldl(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
+  | "list_foldr"  => mk_3args_primitive(mk_expr(EPrim(PListFoldr(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
 
   // GraphQL
   // | "graphql_execute" => mk_2args_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a"), mk_evar("b")))))

@@ -128,6 +128,14 @@ let test_cases = [
     let f = (i, x) => x + i;
     List.mapi(f, l);",                      [VList([VInt(1), VInt(3), VInt(5)])]),
 
+  ("let l = [1, 2, 3];
+    List.foldl((acc, x) => acc + x, 0, l);",                      
+    [VInt(6)]),
+
+  ("let l = [1, 2, 3];
+    List.foldr((x, acc) => acc + x, l, 0);",                      
+    [VInt(6)]),
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 

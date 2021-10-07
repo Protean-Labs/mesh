@@ -487,6 +487,8 @@ let rec infer_exn = (env, level, exprs, typs) => {
 
         (TList(t2), env);
       | PListMapi(_) => raise(TypeError("PListMapi: not implemented"))
+      | PListFoldl(_) => raise(TypeError("PListFoldl: not implemented"))
+      | PListFoldr(_) => raise(TypeError("PListFoldr: not implemented"))
     };
 
   switch (exprs) {

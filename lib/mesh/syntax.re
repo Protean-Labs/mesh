@@ -58,8 +58,8 @@ and primitive =
   | PListCons(expr, expr)
   | PListMap(expr, expr)
   | PListMapi(expr, expr)
-  // | PListFoldl(expr, expr, expr)
-  // | PListFoldr(expr, expr, expr)
+  | PListFoldl(expr, expr, expr)
+  | PListFoldr(expr, expr, expr)
   // GraphQL primitive functions
   // | PGraphqlExec(expr, expr)
 ;

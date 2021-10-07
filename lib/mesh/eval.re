@@ -172,20 +172,38 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
           | VClosure(env', EFun(pat, e)) => eval_value(bind_pat_value(pat, argv) @ env', e)
           | _ => raise(Runtime_error([%string "PListMapi: Unexpected types"]))
           },
-          l)
-        )
+          l
+        ))
       | _ => raise(Runtime_error([%string "PListMapi: Unexpected types"]))
       }
-    // | PListFoldl(e1, e2, e3)  => 
-    //   switch (eval_non_let(env, e1), eval_non_let(env, e2), eval_non_let(env, e3)) {
-    //   | (VClosure(env', EFun(pat1, EFun(pat2, body))), v, VList(l)) => VList(List.fold_left((acc, argv) => eval_non_let(bind_pat_value(pat1, acc) @ bind_pat_value(pat2, argv) @ env', body), v, l))
-    //   | _ => raise(Runtime_error([%string "PListMap: Unexpected types"]))
-    //   }  
-    // | PListFoldr(e1, e2, e3)  => 
-    //   switch (eval_non_let(env, e1), eval_non_let(env, e2), eval_non_let(env, e3)) { 
-    //   | (VClosure(env', EFun(pat, e)), VList(l)) => VList(List.map((argv) => eval_non_let(bind_pat_value(pat, argv) @ env', e), l))
-    //   | _ => raise(Runtime_error([%string "PListMap: Unexpected types"]))
-    //   }  
+
+    | PListFoldl(e1, e2, e3)  => 
+      switch (eval_value(env, e1), eval_value(env, e2), eval_value(env, e3)) {
+      | (VClosure(env', EFun(pat, e)), acc, VList(l)) => 
+        List.fold_left((acc, argv) => 
+          switch (eval_value(bind_pat_value(pat, acc) @ env', e)) {
+          | VClosure(env', EFun(pat, e)) => eval_value(bind_pat_value(pat, argv) @ env', e)
+          | _ => raise(Runtime_error([%string "PListFoldl: Unexpected types"]))
+          },
+          acc,
+          l
+        )
+      | _ => raise(Runtime_error([%string "PListFoldl: Unexpected types"]))
+      }
+
+    | PListFoldr(e1, e2, e3)  => 
+      switch (eval_value(env, e1), eval_value(env, e2), eval_value(env, e3)) {
+      | (VClosure(env', EFun(pat, e)), VList(l), acc) => 
+        List.fold_right((argv, acc) => 
+          switch (eval_value(bind_pat_value(pat, argv) @ env', e)) {
+          | VClosure(env', EFun(pat, e)) => eval_value(bind_pat_value(pat, acc) @ env', e)
+          | _ => raise(Runtime_error([%string "PListFoldr: Unexpected types"]))
+          },
+          l,
+          acc
+        )
+      | _ => raise(Runtime_error([%string "PListFoldr: Unexpected types"]))
+      }
     // GraphQL primitive functions
     // TODO: Graphql query execution
     // | PGraphqlExec(e1, e2) => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VString(a), VGraphqlQuery(b)) =>  | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}

@@ -85,15 +85,16 @@ let (std_env, std_tenv) = {
     | Ok((_, env)) => env
     | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
     },
-    switch (
-      R.bind(
-        R.bind(existing_path(paths), (path) => parse_file(read_file([%string "%{path}/stdlib.mesh"]))), 
-        Infer.infer
-      )
-    ) {
-    | Ok((_, env)) => env
-    | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
-    }
+    // switch (
+    //   R.bind(
+    //     R.bind(existing_path(paths), (path) => parse_file(read_file([%string "%{path}/stdlib.mesh"]))), 
+    //     Infer.infer
+    //   )
+    // ) {
+    // | Ok((_, env)) => env
+    // | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
+    // }
+    Infer.Env.empty
   )
 };
 
@@ -109,7 +110,8 @@ let parse_eval = (source) =>
 let parse_infer = (source) =>
   R.bind(
     R.map((ast) => 
-      Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast], 
+      // Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast], 
+      ast,
       parse_file(source)
     ), 
     Infer.infer(~env=std_tenv)

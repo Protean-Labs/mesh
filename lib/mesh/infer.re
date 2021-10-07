@@ -388,7 +388,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
       let (typs, _) = infer_exn(env, level, [expr1, expr2], []);
       (typs |> List.rev |> List.hd, env);
     | EPrim(prim) =>
-      typ_of_primitive(prim, env)
+      typ_of_primitive(env, level, prim)
     | EMod(name, exprs) => 
       infer_exn(env, level, exprs, []) |> ((_, mod_env:Env.t)) =>
       (TConst("unit"), Env.extend(env,[],name ,TMod(mod_env.tvars)))
@@ -399,7 +399,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
       }
     // | _ => raise(TypeError("infer not implmented"))
     }
-    and typ_of_primitive = (prim, env) => 
+    and typ_of_primitive = (env, level, prim) => 
       switch (prim) {
       // Int primitive functions
       | PIntAdd(a_expr, b_expr) => 
@@ -463,21 +463,16 @@ let rec infer_exn = (env, level, exprs, typs) => {
         );
         
         (TList(typ), env);
-      | PListMap(f_expr, list_expr) =>
+        
+      | PListMap(efun, elist) =>
         let (typs, _) = 
-          infer_exn(env, level, [f_expr, list_expr], []) |> ((inferred, nenv)) =>
+          infer_exn(env, level, [efun, elist], []) |> ((inferred, nenv)) =>
           switch (inferred) {
           | [_, _] as l => (l, nenv)
           | _ => raise(TypeError("PListMap: wrong number of arguments"))
           };
 
-        logger#debug("PListMap: typs = [%s]", String.concat(", ", List.map(string_of_typ, typs)));
-
-        let (t1, t2) = 
-          switch (List.hd(typs)) {
-          | TFun(t1, t2) => (t1, t2)
-          | _ => raise(TypeError("PListMap: first argument is not a function"))
-          };
+        let (t1, t2) = (env.new_var(level), env.new_var(level));
 
         List.iter2(
           unify(env.new_var), 
@@ -486,9 +481,59 @@ let rec infer_exn = (env, level, exprs, typs) => {
         );
 
         (TList(t2), env);
-      | PListMapi(_) => raise(TypeError("PListMapi: not implemented"))
-      | PListFoldl(_) => raise(TypeError("PListFoldl: not implemented"))
-      | PListFoldr(_) => raise(TypeError("PListFoldr: not implemented"))
+      | PListMapi(efun, elist) => 
+        let (typs, _) = 
+          infer_exn(env, level, [efun, elist], []) |> ((inferred, nenv)) =>
+          switch (inferred) {
+          | [_, _] as l => (l, nenv)
+          | _ => raise(TypeError("PListMapi: wrong number of arguments"))
+          };
+
+        let (t1, t2) = (env.new_var(level), env.new_var(level));
+
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TFun(t1, TFun(TConst("int"), t2)), TList(t1)]
+        );
+
+        (TList(t2), env);
+
+      | PListFoldl(efun, eacc, elist) =>
+        let (typs, _) = 
+          infer_exn(env, level, [efun, eacc, elist], []) |> ((inferred, nenv)) =>
+          switch (inferred) {
+          | [_, _, _] as l => (l, nenv)
+          | _ => raise(TypeError("PListFoldl: wrong number of arguments"))
+          };
+
+        let (t1, t2) = (env.new_var(level), env.new_var(level));
+
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TFun(t2, TFun(t1, t2)), t2, TList(t1)]
+        );
+
+        (t2, env);
+
+      | PListFoldr(efun, elist, eacc) =>
+        let (typs, _) = 
+          infer_exn(env, level, [efun, elist, eacc], []) |> ((inferred, nenv)) =>
+          switch (inferred) {
+          | [_, _, _] as l => (l, nenv)
+          | _ => raise(TypeError("PListFoldr: wrong number of arguments"))
+          };
+
+        let (t1, t2) = (env.new_var(level), env.new_var(level));
+
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TFun(t1, TFun(t2, t2)), TList(t1), t2]
+        );
+
+        (t2, env);
     };
 
   switch (exprs) {

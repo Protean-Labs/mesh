@@ -75,26 +75,27 @@ let (std_env, std_tenv) = {
 
   // TODO: Fix stdlib path
 
+  let path = existing_path(paths);
   (
     switch (
       R.bind(
-        R.bind(existing_path(paths), (path) => parse_file(read_file([%string "%{path}/stdlib.mesh"]))), 
+        R.bind(path, (path) => parse_file(read_file([%string "%{path}/stdlib.mesh"]))), 
         Eval.eval
       )
     ) {
     | Ok((_, env)) => env
     | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
     },
-    // switch (
-    //   R.bind(
-    //     R.bind(existing_path(paths), (path) => parse_file(read_file([%string "%{path}/stdlib.mesh"]))), 
-    //     Infer.infer
-    //   )
-    // ) {
-    // | Ok((_, env)) => env
-    // | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
-    // }
-    Infer.Env.empty
+    switch (
+      R.bind(
+        R.bind(path, (path) => parse_file(read_file([%string "%{path}/stdlib.mesh"]))), 
+        Infer.infer
+      )
+    ) {
+    | Ok((_, env)) => env
+    | Error(`Msg(msg)) => raise(Eval.Runtime_error(msg))
+    }
+    // Infer.Env.empty
   )
 };
 
@@ -108,13 +109,22 @@ let parse_eval = (source) =>
   );
 
 let parse_infer = (source) =>
-  R.bind(
-    R.map((ast) => 
-      // Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast], 
-      ast,
-      parse_file(source)
-    ), 
-    Infer.infer(~env=std_tenv)
+  R.map(
+    // Pop first type in [typs] since it will be unit due to the implicit
+    // EOpen([], "Stdlib") prepended to mesh expressions
+    ((typs, env)) => 
+      switch (typs) {
+      | [_, ...rest] => (rest, env)
+      | _ => (typs, env)
+      },
+    R.bind(
+      R.map((ast) => 
+        Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast],
+        // ast,
+        parse_file(source)
+      ), 
+      Infer.infer(~env=std_tenv)
+    )
   );
 
   // parse_file(source) >>= Infer.infer(Infer.Env.empty,0) |> (result) =>

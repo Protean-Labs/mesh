@@ -147,7 +147,7 @@ let test_cases = [
       let y = x; 
     }; 
     f(x, M.y);",
-    [TConst("unit"),TConst("unit"),TConst("unit"),TConst("int")]
+    [TConst("unit"), TConst("unit"), TConst("unit"), TConst("int")]
   ),
   (
     "external f = \"int_add\";
@@ -157,7 +157,7 @@ let test_cases = [
     }; 
     open M; 
     x;",
-    [TConst("unit"),TConst("unit"),TConst("unit"),TConst("unit"),TConst("unit")]
+    [TConst("unit"), TConst("unit"), TConst("unit"), TConst("unit"), TConst("unit")]
   ),
   (
     "let x = {a:1, b:\"hello\"}; x;",
@@ -179,13 +179,31 @@ let test_cases = [
         TRec((TRowExtend("b", TConst("string"), TRowEmpty)))
       ])
     ]
-  )
+  ),
+  ("let l = [1, 2, 3];
+    let f = (x) => x + 1;
+    List.map(f, l);",                       [TConst("unit"), TConst("unit"), TList(TConst("int"))]),
+
+  ("let l = [1, 2, 3];
+    List.map((x) => x + 1, l);",            [TConst("unit"), TList(TConst("int"))]),
+
+  ("let l = [1, 2, 3];
+    let f = (i, x) => x + i;
+    List.mapi(f, l);",                      [TConst("unit"), TConst("unit"), TList(TConst("int"))]),
+
+  ("let l = [1, 2, 3];
+    List.foldl((acc, x) => acc + x, 0, l);",                      
+    [TConst("unit"), TConst("int")]),
+
+  ("let l = [1, 2, 3];
+    List.foldr((x, acc) => acc + x, l, 0);",                      
+    [TConst("unit"), TConst("int")]),
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 
   switch (typs) {
   | Error(`Msg(msg)) => msg
-  | Ok(l) => List.map(string_of_typ, l) |> List.hd
+  | Ok(l) => List.map(string_of_typ, l) |> String.concat(",");
   }
 
 

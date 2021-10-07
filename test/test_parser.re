@@ -189,13 +189,17 @@ let test_cases = [
 
   // Extensions
   // TODO: Make test compare query 
-  ("```graphql
-    query {
-      country(code: \"BR\") {
-        name
+  ("let query = ```graphql
+      query {
+        country(code: \"BR\") {
+          name
+        }
       }
-    }
-    ```;",
+    ```;
+    
+    Graphql.execute: string => graphql_query => 'b;
+
+    let data = Graphql.execute(\"http://www.endpoint.com/graphql\", query);",
     mk_expr(EGraphql([])))
 
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));

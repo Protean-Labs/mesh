@@ -28,10 +28,10 @@ and tenv = list((name, typ));
 
 let typ_of_graphql_query = (uri, query) => { 
   open Graphql_ppx_base.Result_structure;
-  
+
   let rec typ_of_result_structure = (op) => 
     switch (op) {
-    | Res_nullable(_) =>                    raise(Type_error("GraphQL: Res_nullable not implemented"))
+    | Res_nullable({inner, _}) =>           TOpt(typ_of_result_structure(inner))
     | Res_array({inner, _}) =>              TList(typ_of_result_structure(inner))
     | Res_id(_) =>                          raise(Type_error("GraphQL: Res_id not implemented"))
     | Res_string(_) =>                      TConst("string")

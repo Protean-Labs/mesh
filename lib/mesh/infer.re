@@ -68,9 +68,9 @@ let string_of_typ = (typ) => {
     }
     | TVar({contents: Free(id, _)}) => [%string "(TVar Free %{string_of_int id})"]
     | TVar({contents: Constrained(typ)}) => [%string "(TVar Constrained %{f ~is_simple typ})"]
-    | TRec(row) => [%string "{%{f row}}"]
-    | TRowEmpty => "{}"
-    | TRowExtend(name, field_typ, rest) => [%string "TRowExt \n(%{name} ,%{f ~is_simple field_typ}, \n%{f ~is_simple rest})"]
+    | TRec(row) => [%string "(TRec\n%{f ~level:(level+1) row})"]
+    | TRowEmpty => "TRowEmpty"
+    | TRowExtend(name, field_typ, rest) => [%string "(TRowExt %{name}\n%{f ~level:(level+1) ~is_simple field_typ}\n%{f ~level:(level+1) ~is_simple rest})"]
     };
   };
   

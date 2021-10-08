@@ -18,6 +18,8 @@ type typ =
   | TRec(typ)
   | TRowEmpty
   | TRowExtend(name, typ, typ)
+  | TOpt(option(typ))
+  | TTag(typ)
   | TMod(tenv)
 and tvar = 
   | Free(id, level)
@@ -67,6 +69,8 @@ let string_of_typ = (typ) => {
     | TRec(row) => [%string "{%{f false row}}"]
     | TRowEmpty => ""
     | TRowExtend(_) => "TRow extend"
+    | TOpt(_) => "?"
+    | TTag(_) => "tag"
     };
   
   f(false, typ);
@@ -148,6 +152,8 @@ let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
     | TList(list_typ) => f(list_typ)
     | TTuple(l) => List.iter(f, l)
     | TRec(row) => f(row)
+    | TOpt(opt) => { opt |> fun | Some(x) => f(x) | None => ()}
+    | TTag(row) => f(row)
     | TRowExtend(_, field_typ, row) => { f(field_typ); f(row);}
     | TRowEmpty => ()
     | TConst(_) => ()
@@ -184,7 +190,10 @@ let rec unify = (new_var, typ1, typ2) => {
       occurs_check_adjust_levels(id, level, typ1);
       tvar := Constrained(typ1);
     }
+    | (TOpt(Some(typ1)), TOpt(Some(typ2))) => unify(new_var, typ1, typ2)
+    | (TOpt(None), TOpt(None)) => ()
     | (TRec(row1), TRec(row2)) => unify(new_var, row1, row2)
+    | (TTag(row1), TTag(row2)) => unify(new_var, row1, row2)
     | (TRowEmpty, TRowEmpty) => ()
     | (TRowExtend(label1, field_typ1, rest_row1), TRowExtend(_) as row2) =>
       let rest_row_tvar_ref_option = switch (rest_row1) {
@@ -226,7 +235,10 @@ let rec generalize = (level) => fun
   | TList(typ) => TList(generalize(level, typ))
   | TTuple(l) => TTuple(List.map(generalize(level), l))
   // | TMod(tenv) => TMod(List.split(tenv) |> ((names, typs)) => List.combine(names, List.map(generalize(level), typs)))
+  | TOpt(Some(x)) => TOpt(Some(generalize(level,x)))
+  | TOpt(None) as typ => typ
   | TRec(row) => TRec(generalize(level,row))
+  | TTag(row) => TTag(generalize(level, row))
   | TMod(_) => raise(TypeError("Cannot generalize module"))
   | TRowExtend(label, field_typ, row) =>  TRowExtend(label, generalize(level,field_typ), generalize(level,row))
   | TVar({contents: Constrained(typ)}) => generalize(level, typ)
@@ -257,7 +269,10 @@ let instantiate = (new_var, level:level, typ) => {
       | TFun(param_typ, return_typ) => TFun(f(param_typ), f(return_typ))
       | TList(typ1) => TList(f(typ1))
       | TTuple(l) => TTuple(List.map(f, l))
+      | TOpt(Some(x)) => TOpt(Some(f(x)))
+      | TOpt(None) => typ
       | TRec(row) => TRec(f(row))
+      | TTag(row) => TTag(f(row))
       | TMod(_) => raise(TypeError("Cannot instantiate module"))
       | TRowEmpty => typ 
       | TRowExtend(label, field_typ, row) => TRowExtend(label, f(field_typ), f(row))
@@ -372,7 +387,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
       let param_typ = TRec(TRowExtend(label, field_typ, rest_row_typ));
       let (rec_typ, _) = f(env, level, rec_expr);
       unify(env.new_var, param_typ, rec_typ);
-      (field_typ, env); 
+      (field_typ, env);
     | ERecExtend(label, expr, rec_expr) =>
       let rest_row_typ = env.new_var(level);
       let field_typ = env.new_var(level);
@@ -381,6 +396,18 @@ let rec infer_exn = (env, level, exprs, typs) => {
       let return_typ = TRec(TRowExtend(label, field_typ, rest_row_typ));
       f(env, level, expr) |> ((expr_typ, _)) => unify(env.new_var, param_typ1, expr_typ);
       f(env, level, rec_expr) |> ((rec_typ, _)) => unify(env.new_var, param_typ2, rec_typ);
+      (return_typ, env)
+    | EOpt(opt) => switch (opt) {
+        | Some(expr) => f(env, level, expr) |> ((expr_typ, _)) => (TOpt(Some(expr_typ)), env)
+        | None       => (TOpt(None), env)
+      }
+    | ETag(tag, expr) => 
+      let rest_row_typ = env.new_var(level);
+      let tag_typ = env.new_var(level);
+      let param_typ = TTag(tag_typ)
+      let return_typ = TTag(TRowExtend(tag, tag_typ, rest_row_typ))
+      let (tag_expr_typ, _) = f(env, level, expr);
+      unify(env.new_var, param_typ, tag_expr_typ);
       (return_typ, env)
     | ESeq(expr1, expr2) => 
       let (typs, _) = infer_exn(env, level, [expr1, expr2], []);

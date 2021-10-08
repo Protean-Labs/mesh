@@ -17,6 +17,7 @@ and value =
   | VClosure(environment, expr_desc)
   | VMod(environment)
   | VRecord(list((name, value)))
+  | VOpt(option(value))
 ;
 
 let value_of_lit = fun
@@ -50,6 +51,11 @@ let rec string_of_value = (~level=0, value) => {
   | VRecord(fields) =>
     let fields = List.map(((name, ele)) => [%string "%{indent}\"%{name}\": %{string_of_value ele}"], fields) |> String.concat(",\n");
     [%string "%{indent}{\n%{fields}\n}"];
+  | VOpt(maybe_value) =>
+    switch (maybe_value) {
+    | Some(value) =>  [%string "%{indent}Some(%{string_of_value value})"]
+    | None =>         [%string "%{indent}None"]
+    }
   };
 };
 
@@ -142,6 +148,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
       | _ => raise(Runtime_error("ERecExtend: base is not a record"))
       }
     | ERecEmpty => VRecord([])
+    | EOpt(maybe_e) => VOpt(Option.map(eval_value(env), maybe_e))
     | _ => raise(Runtime_error("not implemented"))
     }
   and eval_prim = (env, prim) =>

@@ -50,6 +50,13 @@ let test_cases = [
       let f = (a, b) => b;
     };
     M.f(M.x, \"hello\");",                  [VString("hello")]),
+  ("module M = {
+      let x = 2;
+      let y = 5;
+      let f = (a, b) => b;
+    };
+    open M;
+    f(x, \"hello\");",                      [VString("hello")]),
     
   // External functions
   ("external f = \"list_cons\";
@@ -71,10 +78,27 @@ let test_cases = [
   ("external f = \"float_div\";
     f(4., 2.);",                            [VFloat(2.)]),
 
+  // Operator binding
+  ("external add = \"int_add\";
+    let (+) = add;
+    1 + 2;",                                [VInt(3)]),
+  ("external add = \"int_add\";
+    let (.++) = add(1);
+    ++2;",                                  [VInt(3)]),
+
   // Records
+  ("{};",                                   [VRecord([])]),
   ("{a: 1, b: 2, c: 3};",                   [VRecord([("c", VInt(3)), ("b", VInt(2)), ("a", VInt(1))])]),
   ("let r = {a: 1, b: 2};
     {...r, c: 3};",                         [VRecord([("c", VInt(3)), ("b", VInt(2)), ("a", VInt(1))])]),
+  ("{a: 1, b: 2, a: 3};",                   [VRecord([("a", VInt(3)), ("b", VInt(2))])]),
+  ("let r = {a: 1, b: 2};
+    {...r, a: 3};",                         [VRecord([("a", VInt(3)), ("b", VInt(2))])]),
+  ("let r = {a: 1, b: 2};
+    r.a;",                                  [VInt(1)]),
+  ("let r = {a: 1, b: 2};
+    let r2 = {...r, a: 3};
+    r2.a;",                                 [VInt(3)]),
 
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 

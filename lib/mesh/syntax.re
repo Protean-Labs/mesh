@@ -39,6 +39,9 @@ and expr_desc =
   | ERecEmpty
   | ESeq(expr, expr)
   | EMod(name, list(expr))
+  | EOpt(option(expr))
+  | ETag(name, expr)
+  | EOpen(list(name), name)
   | EPrim(primitive)
   | EGraphql(Extensions.Graphql.t)
 and primitive = 

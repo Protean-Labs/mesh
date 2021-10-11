@@ -9,7 +9,7 @@ open Typetree_util;
 
 exception Type_error(string);
 
-let logger = Easy_logging.Logging.make_logger("Mesh.Infer", Debug, [Cli(Debug)]);
+// let logger = Easy_logging.Logging.make_logger("Mesh.Infer", Debug, [Cli(Debug)]);
 
 let typ_of_graphql_query = (uri, query) => { 
   open Graphql_ppx_base.Result_structure;
@@ -67,7 +67,7 @@ module Env = {
   let new_var = (counter) => {
     let current_id = counter();
     fun (lvl) => TVar(ref(Free(current_id(), lvl)));
-  }
+  };
 
   type t = {
     tvars: tenv,
@@ -78,6 +78,7 @@ module Env = {
     tvars: [],
     new_var: new_var(counter)
   };
+
   let extend = (env, path, name, typ) => {
     ...env, 
     tvars: List.fold_left((acc, modname) => 
@@ -113,6 +114,8 @@ module Env = {
 
   let reset_id = (env) => {...env, new_var :new_var(counter)};
 };
+
+type infer_result = Lwt_result.t((list(Typetree.typ), Env.t), Rresult.R.msg);
 
 let occurs_check_adjust_levels = (tvar_id, tvar_level, typ) => {
   let rec f = fun
@@ -423,12 +426,12 @@ let rec infer_exn = (env, level, exprs, typs) => {
     }
     and typ_of_primitive = (env, level, prim) => {
       // Helper function to infer primitive functions types
-      let infer_primitive = (args, args_typs, ret_typ) => {
+      let infer_primitive = (args_exprs, args_typs, ret_typ) => {
         let check_num_args = (args, typs) =>
           List.length(args) == List.length(typs) ? () : raise(Type_error("EPrim: wrong number of arguments"));
         
-        infer_exn(env, level, args, [])                     >|= ((inf_typs, _)) =>
-        check_num_args(inf_typs, args)                      |> () =>
+        infer_exn(env, level, args_exprs, [])               >|= ((inf_typs, _)) =>
+        check_num_args(inf_typs, args_exprs)                |> () =>
         List.iter2(unify(env.new_var), inf_typs, args_typs) |> () =>
         (ret_typ, env)
       };
@@ -484,7 +487,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
   }
 };
 
-let infer = (~env=Env.empty, ~level=0, e) =>
+let infer = (~env=Env.empty, ~level=0, e): infer_result =>
   try (Lwt_result.ok @@ infer_exn(env, level, e, [])) {
   | Type_error(msg) => Lwt.return @@ Rresult.R.error_msg(msg)
   };

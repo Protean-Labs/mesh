@@ -153,15 +153,68 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
     }
   and eval_prim = (env, prim) =>
     switch (prim) {
-    | PListCons(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (v, VList(l)) => VList([v, ...l]) | _ => raise(Runtime_error([%string "PListCons: Unexpected types"]))}
+    // Int primitive functions
     | PIntAdd(e1, e2)     => switch (eval_value(env, e1), eval_value(env, e2)) { | (VInt(a), VInt(b)) => VInt(a + b) | _ => raise(Runtime_error([%string "PIntAdd: Unexpected types"]))}
     | PIntSub(e1, e2)     => switch (eval_value(env, e1), eval_value(env, e2)) { | (VInt(a), VInt(b)) => VInt(a - b) | _ => raise(Runtime_error([%string "PIntSub: Unexpected types"]))}
     | PIntMul(e1, e2)     => switch (eval_value(env, e1), eval_value(env, e2)) { | (VInt(a), VInt(b)) => VInt(a * b) | _ => raise(Runtime_error([%string "PIntMul: Unexpected types"]))}
     | PIntDiv(e1, e2)     => switch (eval_value(env, e1), eval_value(env, e2)) { | (VInt(a), VInt(b)) => VInt(a / b) | _ => raise(Runtime_error([%string "PIntDiv: Unexpected types"]))}
+    | PIntNeg(e)          => switch (eval_value(env, e)) { | VInt(a) => VInt(-a) | _ => raise(Runtime_error([%string "PIntNeg: Unexpected types"])) }
+    // Float primitive functions
     | PFloatAdd(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a +. b) | _ => raise(Runtime_error([%string "PFloatAdd: Unexpected types"]))}
     | PFloatSub(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a -. b) | _ => raise(Runtime_error([%string "PFloatSub: Unexpected types"]))}
     | PFloatMul(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a *. b) | _ => raise(Runtime_error([%string "PFloatMul: Unexpected types"]))}
     | PFloatDiv(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (VFloat(a), VFloat(b)) => VFloat(a /. b) | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
+    | PFloatNeg(e)        => switch (eval_value(env, e)) { | VFloat(a) => VFloat(-.a) | _ => raise(Runtime_error([%string "PIntNeg: Unexpected types"])) }
+    // List primitive functions
+    | PListCons(e1, e2)   => switch (eval_value(env, e1), eval_value(env, e2)) { | (v, VList(l)) => VList([v, ...l]) | _ => raise(Runtime_error([%string "PListCons: Unexpected types"]))}
+    | PListMap(e1, e2)    => 
+      switch (eval_value(env, e1), eval_value(env, e2)) {
+      | (VClosure(env', EFun(pat, e)), VList(l)) => VList(List.map((argv) => eval_value(bind_pat_value(pat, argv) @ env', e), l))
+      | _ => raise(Runtime_error([%string "PListMap: Unexpected types"]))
+      }
+    | PListMapi(e1, e2)   => 
+      switch (eval_value(env, e1), eval_value(env, e2)) {
+      | (VClosure(env', EFun(pat, e)), VList(l)) => 
+        VList(List.mapi((i, argv) => 
+          switch (eval_value(bind_pat_value(pat, VInt(i)) @ env', e)) {
+          | VClosure(env', EFun(pat, e)) => eval_value(bind_pat_value(pat, argv) @ env', e)
+          | _ => raise(Runtime_error([%string "PListMapi: Unexpected types"]))
+          },
+          l
+        ))
+      | _ => raise(Runtime_error([%string "PListMapi: Unexpected types"]))
+      }
+
+    | PListFoldl(e1, e2, e3)  => 
+      switch (eval_value(env, e1), eval_value(env, e2), eval_value(env, e3)) {
+      | (VClosure(env', EFun(pat, e)), acc, VList(l)) => 
+        List.fold_left((acc, argv) => 
+          switch (eval_value(bind_pat_value(pat, acc) @ env', e)) {
+          | VClosure(env', EFun(pat, e)) => eval_value(bind_pat_value(pat, argv) @ env', e)
+          | _ => raise(Runtime_error([%string "PListFoldl: Unexpected types"]))
+          },
+          acc,
+          l
+        )
+      | _ => raise(Runtime_error([%string "PListFoldl: Unexpected types"]))
+      }
+
+    | PListFoldr(e1, e2, e3)  => 
+      switch (eval_value(env, e1), eval_value(env, e2), eval_value(env, e3)) {
+      | (VClosure(env', EFun(pat, e)), VList(l), acc) => 
+        List.fold_right((argv, acc) => 
+          switch (eval_value(bind_pat_value(pat, argv) @ env', e)) {
+          | VClosure(env', EFun(pat, e)) => eval_value(bind_pat_value(pat, acc) @ env', e)
+          | _ => raise(Runtime_error([%string "PListFoldr: Unexpected types"]))
+          },
+          l,
+          acc
+        )
+      | _ => raise(Runtime_error([%string "PListFoldr: Unexpected types"]))
+      }
+    // GraphQL primitive functions
+    // TODO: Graphql query execution
+    // | PGraphqlExec(e1, e2) => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VString(a), VGraphqlQuery(b)) =>  | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
     };
 
   let eval_env = (env, expr) =>
@@ -188,7 +241,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
   };
 };
 
-let eval = (e) => 
-  try (R.ok @@ eval_exn([], [], e)) {
+let eval = (~env=[], e) => 
+  try (R.ok @@ eval_exn([], env, e)) {
   | Runtime_error(msg) => R.error_msg(msg)
   };

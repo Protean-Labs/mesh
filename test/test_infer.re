@@ -147,7 +147,7 @@ let test_cases = [
       let y = x; 
     }; 
     f(x, M.y);",
-    [TConst("unit"),TConst("unit"),TConst("unit"),TConst("int")]
+    [TConst("unit"), TConst("unit"), TConst("unit"), TConst("int")]
   ),
   (
     "external f = \"int_add\";
@@ -157,7 +157,7 @@ let test_cases = [
     }; 
     open M; 
     x;",
-    [TConst("unit"),TConst("unit"),TConst("unit"),TConst("unit"),TConst("unit")]
+    [TConst("unit"), TConst("unit"), TConst("unit"), TConst("unit"), TConst("unit")]
   ),
   (
     "let x = {a:1, b:\"hello\"}; x;",
@@ -179,20 +179,43 @@ let test_cases = [
         TRec((TRowExtend("b", TConst("string"), TRowEmpty)))
       ])
     ]
-  )
+  ),
+  ("let l = [1, 2, 3];
+    let f = (x) => x + 1;
+    let x = List.map(f, l);
+    x;",                       [TConst("unit"), TConst("unit"), TConst("unit"), TList(TConst("int"))]),
+
+  ("let l = [1, 2, 3];
+    let x = List.map((x) => x + 1, l);
+    x;",            [TConst("unit"), TConst("unit"), TList(TConst("int"))]),
+
+  ("let l = [1, 2, 3];
+    let f = (i, x) => x + i;
+    let x = List.mapi(f, l);
+    x;",                      [TConst("unit"), TConst("unit"), TConst("unit"), TList(TConst("int"))]),
+
+  ("let l = [1, 2, 3];
+    let x = List.foldl((acc, x) => acc + x, 0, l);
+    x;",                      
+    [TConst("unit"), TConst("unit"), TConst("int")]),
+
+  ("let l = [1, 2, 3];
+    let x = List.foldr((x, acc) => acc + x, l, 0);
+    x;",                      
+    [TConst("unit"), TConst("unit"), TConst("int")]),
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 
   switch (typs) {
   | Error(`Msg(msg)) => msg
-  | Ok(l) => List.map(string_of_typ, l) |> List.hd
+  | Ok(l) => List.map(string_of_typ, l) |> String.concat(",");
   }
 
 
 let make_single_test = ((mesh_expr, expected)) =>
   (mesh_expr) >:: (_) => {
     // assert_equal(~printer=pp_typ_signatures, expected, infer(Env.empty, 0, [mesh_expr]));
-    assert_equal(~printer=pp_typ_signatures, expected, Mesh.parse_file(mesh_expr) >>= infer(Env.empty, 0) >>| ((typs, _)) => typs);
+    assert_equal(~printer=pp_typ_signatures, expected, Mesh.parse_infer(mesh_expr) >>| ((typs, _)) => typs);
   }
 
 let suite = 

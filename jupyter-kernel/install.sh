@@ -11,4 +11,6 @@ echo "{
   \"language\": \"mesh\"
 }" > jupyter-kernel/kernel.json
 
+cp -R stdlib jupyter-kernel
+
 jupyter kernelspec install jupyter-kernel/ --user --replace --name=mesh

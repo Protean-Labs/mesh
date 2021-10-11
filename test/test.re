@@ -1,4 +1,6 @@
-open OUnit2
+open OUnit2;
+
+Common.Logging.set_logging_level(NoLevel);
 
 let suite = test_list([
   Test_parser.suite,

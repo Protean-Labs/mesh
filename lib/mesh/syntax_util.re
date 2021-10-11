@@ -88,15 +88,26 @@ let rec string_of_expr = (~level=0, ~print_loc=false, expr) => {
 and string_of_primitive = (~level=0, prim) =>
   indent(level)  |> (indent) =>
   switch (prim) {
-  | PListCons(e1, e2)   => [%string "%{indent}(list_cons\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  // Int primitive functions
   | PIntAdd(e1, e2)     => [%string "%{indent}(int_add\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PIntSub(e1, e2)     => [%string "%{indent}(int_sub\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PIntMul(e1, e2)     => [%string "%{indent}(int_mul\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PIntDiv(e1, e2)     => [%string "%{indent}(int_div\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PIntNeg(e)          => [%string "%{indent}(int_neg\n%{string_of_expr ~level:(level + 1) e})"]
+  // Float primitive functions
   | PFloatAdd(e1, e2)   => [%string "%{indent}(float_add\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PFloatSub(e1, e2)   => [%string "%{indent}(float_sub\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PFloatMul(e1, e2)   => [%string "%{indent}(float_mul\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PFloatDiv(e1, e2)   => [%string "%{indent}(float_div\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PFloatNeg(e)        => [%string "%{indent}(float_neg\n%{string_of_expr ~level:(level + 1) e}"]
+  // List primitive functions
+  | PListCons(e1, e2)   => [%string "%{indent}(list_cons\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PListMap(e1, e2)    => [%string "%{indent}(list_map\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PListMapi(e1, e2)   => [%string "%{indent}(list_mapi\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PListFoldl(e1, e2, e3)  => [%string "%{indent}(list_foldl\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
+  | PListFoldr(e1, e2, e3)  => [%string "%{indent}(list_foldr\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
+  // GraphQL primitive functions
+  // | PGraphqlExec(e1, e2) => [%string "%{indent}(graphql_exec\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   };
 
 // ================================================================

@@ -36,6 +36,7 @@ _opam/
 # Misc
 notes/
 jupyter-kernel/kernel.json
+jupyter-kernel/stdlib
 
 # Menhir stuff
 *.conflicts

@@ -110,7 +110,9 @@ let string_of_typ = (typ) => {
       let elements = List.map((ele) => f(~level=level + 1, ele), typs) |> String.concat("\n");
       [%string "%{indent}(TTuple \n%{elements})"]
     | TList(typ)            => [%string "(TList %{f typ})"]
-    | TMod(_)               => [%string "module"]
+    | TMod(tenv)               => 
+      let typ_strings = List.map(((name, typ)) => [%string "%{name}: %{f ~level:(level + 1) ~is_simple:true typ})"], tenv) |> String.concat("\n");
+      [%string "Module \n%{typ_strings}}"];
     | TVar({contents: Quantified(id)}) => {
         try (Hashtbl.find(id_name_map, id)) {
         | Not_found => {
@@ -122,9 +124,9 @@ let string_of_typ = (typ) => {
     }
     | TVar({contents: Free(id, _)}) => [%string "(TVar Free %{string_of_int id})"]
     | TVar({contents: Constrained(typ)}) => [%string "(TVar Constrained %{f ~is_simple typ})"]
-    | TRec(row) => [%string "{%{f row}}"]
-    | TRowEmpty => ""
-    | TRowExtend(_) => "TRow extend"
+    | TRec(row) => [%string "(TRec\n%{f ~level:(level+1) row})"]
+    | TRowEmpty => "TRowEmpty"
+    | TRowExtend(name, field_typ, rest) => [%string "(TRowExt %{name}\n%{f ~level:(level+1) ~is_simple field_typ}\n%{f ~level:(level+1) ~is_simple rest})"]
     | TOpt(typ) => [%string "(TOpt %{f typ})"]
     | TTag(typ) => [%string "(TTag %{f typ})"]
     };

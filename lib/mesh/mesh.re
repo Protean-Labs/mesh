@@ -35,7 +35,7 @@ let parse = (source) => {
   let supplier = () => Mesh_lexer.token(lexer);
 
   try(Lwt_result.return @@ Parser.MenhirInterpreter.loop(supplier, parser)) {
-  | Lexer.Syntax_error(err) => Lwt.return @@ R.error_msg(err)
+  | Lexer_util.Syntax_error(err) => Lwt.return @@ R.error_msg(err)
   | exn => Lwt.return @@ R.error_msg(Printexc.to_string(exn) ++ ": " ++ Printexc.get_backtrace())
   }
 };

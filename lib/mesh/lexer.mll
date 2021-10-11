@@ -1,7 +1,6 @@
 {
   open Parser
-
-  exception Syntax_error of string
+  open Lexer_util
 
   let char_for_backslash = function
     | 'n' -> '\010'
@@ -18,6 +17,7 @@ let alpha = ['a'-'z' 'A'-'Z']
 let int     = '-'? digit+
 let float   = '-'? digit+ '.' digit*
 let string  = (alpha|digit|'_')*
+let ext_arg    = (alpha|digit|'_'|'-'|'/'|':'|'.')*
 let lident     = ['a'-'z'] string 
 let uident     = ['A'-'Z'] string
 
@@ -67,8 +67,8 @@ rule token = parse
 | int as lit        { INT (int_of_string lit) }
 | float as lit      { FLOAT (float_of_string lit) }
 | '"'               { read_string (Buffer.create 16) lexbuf }
-| "```" lident as extname
-  { read_extension (String.sub extname 3 (String.length extname - 3)) (Buffer.create 16) lexbuf }
+| "```" lident "(" ext_arg ")" as extheader
+  { read_extension (parse_extension_header extheader) (Buffer.create 16) lexbuf }
 | lident as lident  { LIDENT (lident) }
 | uident as uident  { UIDENT (uident) }
 | eof               { EOF }
@@ -83,9 +83,9 @@ and read_string buf = parse
 | eof               { raise (Syntax_error ("String is not terminated")) }
 | _                 { raise (Syntax_error ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 
-and read_extension name buf = parse
-| "```"             { EXTENSION (name, Buffer.contents buf) }
-| [^ '`' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_extension name buf lexbuf}
+and read_extension extheader buf = parse
+| "```"             { let (extname, extarg) = extheader in EXTENSION (extname, extarg, Buffer.contents buf) }
+| [^ '`' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_extension extheader buf lexbuf}
 | eof               { raise (Syntax_error ("Extension block is not terminated")) }
 | _                 { raise (Syntax_error ("Illegal extension block character: " ^ Lexing.lexeme lexbuf)) }
 

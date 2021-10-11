@@ -586,7 +586,8 @@ let rec infer_exn = (env, level, exprs, typs) => {
       | _ => raise(Type_error([%string "open %{modname}: %{modname} is not a module!"]))
       }
       
-    | EGraphql(_) => Lwt.return @@ (TConst("graphql_query"), env)
+    | EGraphql(uri, _, query) => 
+      typ_of_graphql_query(uri, query) >|= (typ) => (typ, env)
     // | _ => raise(Type_error("infer not implmented"))
     }
     and typ_of_primitive = (env, level, prim) => 
@@ -711,22 +712,21 @@ let rec infer_exn = (env, level, exprs, typs) => {
         ) |> () =>
         (t2, env);
 
-      | PGraphqlExec(e_uri, e_query) =>
+      | PGraphqlExec(e_query) =>
         // infer_exn(env, level, [a_expr], [])                   >|= ((typs, _)) =>
         // List.iter(unify(env.new_var, TConst("float")), typs)  |> () =>
         // (TConst("float"), env)
 
-        infer_exn(env, level, [e_uri, e_query], [])   >>= ((typs, _)) =>
-        List.iter2(
-          unify(env.new_var), 
-          typs,
-          [TConst("string"), TConst("graphql_query")]
-        ) |> () =>
-        switch (e_uri, e_query) {
-        | ({pexpr_desc: ELit(String(uri)), _}, {pexpr_desc: EGraphql(_, query), _}) =>
-          typ_of_graphql_query(uri, query) >|= (typ) => (typ, env)
-        | _ => raise(Type_error("PGraphqlExec: Invalid types"))
-        }
+        let typ = env.new_var(level);
+
+        infer_exn(env, level, [e_query], [])    >|= ((typs, _)) =>
+        unify(env.new_var, List.hd(typs), typ)  |> () =>
+        (typ, env)
+        // switch (e_query) {
+        // | ({pexpr_desc: ELit(String(uri)), _}, {pexpr_desc: EGraphql(_, query), _}) =>
+        //   typ_of_graphql_query(uri, query) >|= (typ) => (typ, env)
+        // | _ => raise(Type_error([%string "PGraphqlExec: Invalid types (%{Syntax_util.string_of_expr e_uri}, %{Syntax_util.string_of_expr e_query})"]))
+        // }
     };
 
   switch (exprs) {

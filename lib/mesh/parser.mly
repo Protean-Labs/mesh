@@ -14,7 +14,7 @@
 %token <int>    INT
 %token <float>  FLOAT
 %token <string> STRING
-%token <string * string> EXTENSION
+%token <string * string * string> EXTENSION
 
 %token <string> LIDENT
 %token <string> UIDENT
@@ -87,11 +87,11 @@ expr:
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ERecSelect (e, field)) }
 
   | ext = EXTENSION
-    { let (name, body) = ext in
-      match name with
+    { let (extname, extarg, body) = ext in
+      match extname with
       | "graphql" -> 
         let query = Extensions.Graphql.(parse @@ lex(body)) in
-        mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EGraphql (body, query))
+        mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EGraphql (extarg, body, query))
       | name -> raise (Parsing_error [%string "Unknown extension %{name}"]) }
 
   | lit = literal                                           

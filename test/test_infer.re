@@ -203,6 +203,15 @@ let test_cases = [
     let x = List.foldr((x, acc) => acc + x, l, 0);
     x;",                      
     [TConst("unit"), TConst("unit"), TConst("int")]),
+
+  ("let data = Graphql.execute(```graphql(https://countries.trevorblades.com/)
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```);
+    data;", [TConst("unit"), TRec(TRowExtend("country", TRec(TRowExtend("name", TConst("string"), TRowEmpty)), TRowEmpty))])
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 

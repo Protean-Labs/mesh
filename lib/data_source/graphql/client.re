@@ -5,7 +5,11 @@ open Piaf;
 
 open Graphql_ppx_base;
 
+let logger = Easy_logging.Logging.make_logger("Graphql.Client", Debug, [Cli(Debug)]);
+
 let query = (uri, query) => {
+  logger#debug("Querying %s", Uri.to_string(uri));
+  
   let body = 
     `Assoc([("query", `String(query))])
     |> Yojson.Basic.to_string

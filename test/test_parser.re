@@ -201,40 +201,40 @@ let test_cases = [
 
   // Extensions
   // TODO: Make test compare query 
-  ("```graphql
+  ("```graphql(https://countries.trevorblades.com/)
       query {
         country(code: \"BR\") {
           name
         }
       }
-    ```;", mk_expr(EGraphql("
+    ```;", mk_expr(EGraphql("https://countries.trevorblades.com/", "
       query {
         country(code: \"BR\") {
           name
         }
       }
     ",[]))),
-  ("let query = ```graphql
+  ("let query = ```graphql(https://countries.trevorblades.com/)
       query {
         country(code: \"BR\") {
           name
         }
       }
-    ```;", mk_expr(ELet(mk_pvar("query"), mk_expr(EGraphql("
+    ```;", mk_expr(ELet(mk_pvar("query"), mk_expr(EGraphql("https://countries.trevorblades.com/", "
       query {
         country(code: \"BR\") {
           name
         }
       }
     ",[]))))),
-  ("let data = Graphql.execute(\"http://www.endpoint.com/graphql\", ```graphql
+  ("let data = Graphql.execute(```graphql(https://countries.trevorblades.com/)
       query {
         country(code: \"BR\") {
           name
         }
       }
     ```);",
-    mk_expr(ELet(mk_pvar("data"), mk_expr(EApp(mk_expr(EApp(mk_evar(~path=["Graphql"], "execute"), mk_elit_string("http://www.endpoint.com/graphql"))), mk_expr(EGraphql("
+    mk_expr(ELet(mk_pvar("data"), mk_expr(EApp(mk_evar(~path=["Graphql"], "execute"), mk_expr(EGraphql("https://countries.trevorblades.com/", "
       query {
         country(code: \"BR\") {
           name

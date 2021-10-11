@@ -1,4 +1,4 @@
-open Syntax;
+open Parsetree;
 
 // ================================================================
 // Literals helpers

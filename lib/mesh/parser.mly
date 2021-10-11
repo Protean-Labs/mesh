@@ -1,6 +1,6 @@
 %{
-  open Syntax
-  open Syntax_util
+  open Parsetree
+  open Parsetree_util
 
   open Primitives
 
@@ -49,8 +49,8 @@
 %nonassoc UNIT
 %nonassoc EMPTY
 
-// %start <Syntax.expr> expr
-%start <Syntax.expr list> file
+// %start <Parsetree.expr> expr
+%start <Parsetree.expr list> file
 
 %on_error_reduce expr
 %%

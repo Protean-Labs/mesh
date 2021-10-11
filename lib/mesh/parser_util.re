@@ -1,5 +1,5 @@
-open Syntax;
-open Syntax_util;
+open Parsetree;
+open Parsetree_util;
 
 exception Invalid_pattern(string);
 exception Parsing_error(string);

@@ -1,8 +1,8 @@
 // open Rresult;
 open Lwt.Infix;
 
-open Syntax;
-open Syntax_util;
+open Parsetree;
+open Parsetree_util;
 
 exception Type_error(string);
 
@@ -727,7 +727,7 @@ let rec infer_exn = (env, level, exprs, typs) => {
         // switch (e_query) {
         // | ({pexpr_desc: ELit(String(uri)), _}, {pexpr_desc: EGraphql(_, query), _}) =>
         //   typ_of_graphql_query(uri, query) >|= (typ) => (typ, env)
-        // | _ => raise(Type_error([%string "PGraphqlExec: Invalid types (%{Syntax_util.string_of_expr e_uri}, %{Syntax_util.string_of_expr e_query})"]))
+        // | _ => raise(Type_error([%string "PGraphqlExec: Invalid types (%{Parsetree_util.string_of_expr e_uri}, %{Parsetree_util.string_of_expr e_query})"]))
         // }
     };
 

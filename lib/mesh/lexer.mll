@@ -72,7 +72,7 @@ rule token = parse
 | lident as lident  { LIDENT (lident) }
 | uident as uident  { UIDENT (uident) }
 | eof               { EOF }
-| _                 { raise (Syntax_error ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+| _                 { raise (Parsetree_error ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 
 and read_string buf = parse
 | '"'               { STRING (Buffer.contents buf) }
@@ -80,14 +80,14 @@ and read_string buf = parse
   { Buffer.add_char buf (char_for_backslash c);
     read_string buf lexbuf }
 | [^ '"' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_string buf lexbuf}
-| eof               { raise (Syntax_error ("String is not terminated")) }
-| _                 { raise (Syntax_error ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+| eof               { raise (Parsetree_error ("String is not terminated")) }
+| _                 { raise (Parsetree_error ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 
 and read_extension extheader buf = parse
 | "```"             { let (extname, extarg) = extheader in EXTENSION (extname, extarg, Buffer.contents buf) }
 | [^ '`' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_extension extheader buf lexbuf}
-| eof               { raise (Syntax_error ("Extension block is not terminated")) }
-| _                 { raise (Syntax_error ("Illegal extension block character: " ^ Lexing.lexeme lexbuf)) }
+| eof               { raise (Parsetree_error ("Extension block is not terminated")) }
+| _                 { raise (Parsetree_error ("Illegal extension block character: " ^ Lexing.lexeme lexbuf)) }
 
 and read_single_line_comment = parse
 | newline           { Lexing.new_line lexbuf; token lexbuf }

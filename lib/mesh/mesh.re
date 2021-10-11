@@ -1,5 +1,5 @@
-module Syntax = Syntax;
-module Syntax_util = Syntax_util;
+module Parsetree = Parsetree;
+module Parsetree_util = Parsetree_util;
 module Infer = Infer;
 module Eval = Eval;
 
@@ -35,7 +35,7 @@ let parse = (source) => {
   let supplier = () => Mesh_lexer.token(lexer);
 
   try(Lwt_result.return @@ Parser.MenhirInterpreter.loop(supplier, parser)) {
-  | Lexer_util.Syntax_error(err) => Lwt.return @@ R.error_msg(err)
+  | Lexer_util.Parsetree_error(err) => Lwt.return @@ R.error_msg(err)
   | exn => Lwt.return @@ R.error_msg(Printexc.to_string(exn) ++ ": " ++ Printexc.get_backtrace())
   }
 };
@@ -45,7 +45,7 @@ let parse_file = (path) => parse(read_file(path));
 let string_of_ast = (source) => 
   Lwt.map(
     fun
-    | Ok(ast) => List.map(Syntax_util.string_of_expr, ast) |> String.concat("\n")
+    | Ok(ast) => List.map(Parsetree_util.string_of_expr, ast) |> String.concat("\n")
     | Error(`Msg(msg) ) => msg,
     parse(source)
   );
@@ -89,12 +89,12 @@ let std_env = {
 let parse_eval = (source) => 
   std_env                                             >>= ((std_env, _)) =>
   parse(source)                                       >>= (ast) =>
-  Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast]  |> (ast') =>
+  Parsetree_util.[mk_expr(EOpen([], "Stdlib")), ...ast]  |> (ast') =>
   Eval.eval(~env=std_env, ast')
 
   // R.bind(
   //   R.map((ast) => 
-  //     Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast], 
+  //     Parsetree_util.[mk_expr(EOpen([], "Stdlib")), ...ast], 
   //     parse_file(source)
   //   ), 
   //   Eval.eval(~env=std_env)
@@ -103,7 +103,7 @@ let parse_eval = (source) =>
 let parse_infer = (source) =>
   std_env                                             >>= ((_, std_tenv)) =>
   parse(source)                                       >>= (ast) =>
-  Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast]  |> (ast') =>
+  Parsetree_util.[mk_expr(EOpen([], "Stdlib")), ...ast]  |> (ast') =>
   Infer.infer(~env=std_tenv, ast')                    >|= ((tvars, tenv)) =>
   // Pop first type in [typs] since it will be unit due to the implicit
   // EOpen([], "Stdlib") prepended to mesh expressions
@@ -120,7 +120,7 @@ let parse_infer = (source) =>
   //     },
   //   R.bind(
   //     R.map((ast) => 
-  //       Syntax_util.[mk_expr(EOpen([], "Stdlib")), ...ast],
+  //       Parsetree_util.[mk_expr(EOpen([], "Stdlib")), ...ast],
   //       // ast,
   //       parse_file(source)
   //     ), 

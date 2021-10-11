@@ -1,8 +1,8 @@
 open OUnit2;
 open Rresult;
 
-open Mesh.Syntax;
-open Mesh.Syntax_util;
+open Mesh.Parsetree;
+open Mesh.Parsetree_util;
 
 exception Missing_test(string);
 

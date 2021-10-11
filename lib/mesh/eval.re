@@ -1,8 +1,8 @@
 open Rresult;
 open Lwt.Infix;
 
-open Syntax;
-open Syntax_util;
+open Parsetree;
+open Parsetree_util;
 
 exception Runtime_error(string);
 

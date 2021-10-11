@@ -2,8 +2,6 @@ open Rresult;
 open Lwt_result.Infix;
 
 let () = {
-
-
   switch (
     Lwt_main.run @@ (
       Mesh.parse(Sys.argv[1])        >>= (ast) => 

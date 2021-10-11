@@ -1,7 +1,7 @@
 open Graphql_ppx_base;
 open Source_pos;
 
-exception Graphql_syntax_error(string);
+exception Graphql_Parsetree_error(string);
 exception Graphql_parsing_error(string);
 
 type t = Graphql_ast.document;

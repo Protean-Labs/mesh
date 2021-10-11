@@ -11,11 +11,7 @@ let string_of_typ = (typ) => {
     let tvar_char = String.make(1, (Char.chr(97 + i mod 26)));
     let tvar_index = i > 26 ? string_of_int(1 / 26) : ""; 
     [%string "%{tvar_char}%{tvar_index}"];
-  }
-
-  // let concat_typ_strings = (f, typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
-
-  // let rec_to_string = (f,row:tenv) => List.map(((name, typ)) => [%string "%{name}: %{f false typ}"], row) |>  String.concat(", ");
+  };
 
   let rec f = (~level=0, ~is_simple=false, typ) => {
     let indent = indent(level);
@@ -67,8 +63,6 @@ let sig_of_typ = (typ) => {
   }
 
   let concat_typ_strings = (f, typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
-
-  // let rec_to_string = (f,row:tenv) => List.map(((name, typ)) => [%string "%{name}: %{f false typ}"], row) |>  String.concat(", ");
 
   let rec f = (is_simple, typ) => 
     switch(typ) {

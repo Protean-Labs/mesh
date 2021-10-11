@@ -2,6 +2,7 @@ open OUnit2;
 open Rresult;
 
 open Mesh.Infer;
+open Mesh.Typetree;
 
 let test_cases = [
   ("1;",                 [TConst("int")]),

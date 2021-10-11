@@ -4,31 +4,11 @@ open Lwt.Infix;
 open Parsetree;
 open Parsetree_util;
 
+open Typetree;
+
 exception Type_error(string);
 
 let logger = Easy_logging.Logging.make_logger("Mesh.Infer", Debug, [Cli(Debug)]);
-
-type id = int;
-type level = int;
-
-type typ =
-  | TConst(name)
-  | TFun(typ, typ)
-  | TApp(typ, typ)
-  | TTuple(list(typ))
-  | TList(typ)
-  | TVar(ref(tvar))
-  | TRec(typ)
-  | TRowEmpty
-  | TRowExtend(name, typ, typ)
-  | TOpt(typ)
-  | TTag(typ)
-  | TMod(tenv)
-and tvar = 
-  | Free(id, level)
-  | Constrained(typ)
-  | Quantified(id)
-and tenv = list((name, typ));
 
 let typ_of_graphql_query = (uri, query) => { 
   open Graphql_ppx_base.Result_structure;

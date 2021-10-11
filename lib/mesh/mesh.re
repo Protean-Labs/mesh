@@ -1,5 +1,6 @@
 module Parsetree = Parsetree;
 module Parsetree_util = Parsetree_util;
+module Typetree = Typetree;
 module Infer = Infer;
 module Eval = Eval;
 

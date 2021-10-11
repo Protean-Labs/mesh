@@ -6,7 +6,7 @@ let () = {
 
   switch (
     Lwt_main.run @@ (
-      Mesh.parse_file(Sys.argv[1])        >>= (ast) => 
+      Mesh.parse(Sys.argv[1])        >>= (ast) => 
       Mesh.Eval.eval(ast) >|= fst
     )    
   ) {

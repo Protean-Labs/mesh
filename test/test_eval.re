@@ -136,6 +136,16 @@ let test_cases = [
     List.foldr((x, acc) => acc + x, l, 0);",                      
     [VInt(6)]),
 
+  // Graphql
+  ("Graphql.execute(```graphql(https://countries.trevorblades.com/)
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```);",
+    [VRecord([("country", VOpt(Some(VRecord([("name", VString("Brazil"))]))))])])
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 

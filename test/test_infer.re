@@ -211,7 +211,7 @@ let test_cases = [
         }
       }
     ```);
-    data;", [TConst("unit"), TRec(TRowExtend("country", TRec(TRowExtend("name", TConst("string"), TRowEmpty)), TRowEmpty))])
+    data;", [TConst("unit"), TRec(TRowExtend("country", TOpt(TRec(TRowExtend("name", TConst("string"), TRowEmpty))), TRowEmpty))])
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 

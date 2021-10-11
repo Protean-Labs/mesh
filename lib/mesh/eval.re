@@ -19,8 +19,9 @@ and value =
   | VMod(environment)
   | VRecord(list((name, value)))
   | VOpt(option(value))
-  | VGraphqlQuery(string, string)
-;
+  | VGraphqlQuery(string, string);
+
+type eval_result = Lwt_result.t((list(value), environment), Rresult.R.msg);
 
 let value_of_lit = fun
   | Int(v)    => VInt(v)
@@ -103,7 +104,7 @@ let rec value_to_yojson = (record) =>
   | VBool(v)      => `Bool(v)
   | VUnit         => `Null
   | VList(l)      => `List(List.map(value_to_yojson, l))
-  | VTuple(l)     => `Tuple(List.map(value_to_yojson, l))
+  | VTuple(l)     => `List(List.map(value_to_yojson, l))
   | VClosure(_)   => `String("closure")
   | VMod(_)       => `String("module")
   | VRecord(l)    => `Assoc(List.map(((name, v)) => (name, value_to_yojson(v)), l))

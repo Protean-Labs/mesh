@@ -12,6 +12,7 @@
     "test": "esy x dune runtest"
   },
   "dependencies": {
+    "@opam/bos": "0.2.0",
     "@opam/easy_logging": "0.8.2",
     "@opam/graphql_ppx": "1.2.2",
     "@opam/jupyter-kernel": "0.7",

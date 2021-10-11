@@ -1,10 +1,12 @@
-open Rresult;
-// open Lwt.Infix;
+// open Rresult;
+open Lwt.Infix;
 
 open Syntax;
 open Syntax_util;
 
 exception Type_error(string);
+
+let logger = Easy_logging.Logging.make_logger("Mesh.Infer", Debug, [Cli(Debug)]);
 
 type id = int;
 type level = int;
@@ -81,6 +83,57 @@ let string_of_typ = (typ) => {
     [%string "%{tvar_char}%{tvar_index}"];
   }
 
+  // let concat_typ_strings = (f, typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
+
+  // let rec_to_string = (f,row:tenv) => List.map(((name, typ)) => [%string "%{name}: %{f false typ}"], row) |>  String.concat(", ");
+
+  let rec f = (~level=0, ~is_simple=false, typ) => {
+    let indent = indent(level);
+    switch(typ) {
+    | TConst(name)          => [%string "%{indent}(TConst %{name})"]
+    | TApp(ftyp, param_typ) => [%string "%{indent}(TApp %{f ~is_simple:true ftyp}[%{f param_typ}])"]
+    | TFun(param_typ, rtyp) => 
+      let arrow_typ_string = [%string "%{indent}(TFun\n%{f ~level:(level + 1) ~is_simple:true param_typ}\n%{f rtyp})"]
+      is_simple ? [%string "%{indent}(TFun %{arrow_typ_string})"] : arrow_typ_string;
+    | TTuple(typs)          => 
+      let elements = List.map((ele) => f(~level=level + 1, ele), typs) |> String.concat("\n");
+      [%string "%{indent}(TTuple \n%{elements})"]
+    | TList(typ)            => [%string "(TList %{f typ})"]
+    | TMod(_)               => [%string "module"]
+    | TVar({contents: Quantified(id)}) => {
+        try (Hashtbl.find(id_name_map, id)) {
+        | Not_found => {
+          let name = next_name();
+          Hashtbl.add(id_name_map, id, name);
+          [%string "(TVar Quantified %{name} %{string_of_int id})"]; 
+        }
+      }
+    }
+    | TVar({contents: Free(id, _)}) => [%string "(TVar Free %{string_of_int id})"]
+    | TVar({contents: Constrained(typ)}) => [%string "(TVar Constrained %{f ~is_simple typ})"]
+    | TRec(row) => [%string "{%{f row}}"]
+    | TRowEmpty => ""
+    | TRowExtend(_) => "TRow extend"
+    | TOpt(typ) => [%string "(TOpt %{f typ})"]
+    | TTag(typ) => [%string "(TTag %{f typ})"]
+    };
+  };
+  
+  f(typ);
+};
+
+let sig_of_typ = (typ) => {
+  let id_name_map = Hashtbl.create(10);
+  let count = ref(0);
+
+  let next_name = () => {
+    let i = count^;
+    incr(count);
+    let tvar_char = String.make(1, (Char.chr(97 + i mod 26)));
+    let tvar_index = i > 26 ? string_of_int(1 / 26) : ""; 
+    [%string "%{tvar_char}%{tvar_index}"];
+  }
+
   let concat_typ_strings = (f, typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
 
   // let rec_to_string = (f,row:tenv) => List.map(((name, typ)) => [%string "%{name}: %{f false typ}"], row) |>  String.concat(", ");
@@ -115,7 +168,7 @@ let string_of_typ = (typ) => {
     };
   
   f(false, typ);
-}
+};
 
 module Env = {
   let counter = () => {
@@ -361,14 +414,15 @@ let rec infer_exn = (env, level, exprs, typs) => {
 
   let rec f = (env: Env.t, level, expr) => 
     switch (expr.pexpr_desc) {
-    | ELit(lit) => (type_const_of_literal(lit), env)
+    | ELit(lit) => Lwt.return @@ (type_const_of_literal(lit), env)
     | EVar(path, name) => {
-        let typ = try (instantiate(env.new_var, level, Env.lookup(env, path, name, expr.pexpr_loc))) {
+        let typ = 
+          try (instantiate(env.new_var, level, Env.lookup(env, path, name, expr.pexpr_loc))) {
           | Not_found => raise(Type_error([%string "variable %{name}"]))
-        };
-        (typ, env)
+          };
+        Lwt.return @@ (typ, env)
       }
-    | EFun(param_pat, body_expr) => {
+    | EFun(param_pat, body_expr) => 
         let rec bind_pat_param = (pat) => 
           switch (pat.ppat_desc) {
           | PAny => [("", env.new_var(level))]
@@ -388,145 +442,274 @@ let rec infer_exn = (env, level, exprs, typs) => {
           }
         ;
         let fn_env = Env.extend_fold(env, [],names_typs);
-        let (return_typ,_) = f(fn_env, level, body_expr);
+        
+        f(fn_env, level, body_expr) >|= ((return_typ, _)) =>
         (TFun(param_typ, return_typ), env);
-      }
-    | ELet(pattern, expr) => {
-        let (gen_typ, _) = f(env, level + 1, expr) 
-        |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
-        let names_typs = bind_pat_typ(pattern, gen_typ);
-        let new_env2 = Env.extend_fold(env, [], names_typs);
-        (TConst("unit"), new_env2);
-      }
-    | EApp(fn_expr, param_expr) => {
-        let (fn_typ, _) = f(env, level, fn_expr);
-        let (param_typ, return_typ) = match_fun_typ(env.new_var, fn_typ);
-        let (param_typ1, _) = f(env, level, param_expr);
-        unify(env.new_var, param_typ, param_typ1);
-        (return_typ, env);
-      }
-    | EList(l) => {
-        let (list_typ, _) = infer_exn(env, level, l, []) 
-        |> ((typs, new_env)) => switch (typs) {
-          | [] => (TList(env.new_var(level)), new_env)
-          | [lone] => (TList(lone), new_env)
-          | [first, ...rest] => 
-            try (List.iter(unify(env.new_var,first), rest)) {
-              | Type_error(msg) => raise(Type_error("List" ++ msg))
-            };
-            (TList(first), new_env);
-        };
-        (list_typ, env);
-      }
-    | ETuple(l) => {
-        let (tuple_typs, _) = infer_exn(env, level, l, []);
+
+    | ELet(pattern, expr) => 
+        // let (gen_typ, _) = 
+        //   f(env, level + 1, expr) 
+        //   |> ((typ, new_env1)) => (generalize(level,typ), new_env1);
+
+        // let names_typs = bind_pat_typ(pattern, gen_typ);
+        // let new_env2 = Env.extend_fold(env, [], names_typs);
+
+        // (TConst("unit"), new_env2);
+
+        f(env, level + 1, expr)               >|= ((typ, new_env1)) => 
+        (generalize(level,typ), new_env1)     |> ((gen_typ, _)) =>
+        bind_pat_typ(pattern, gen_typ)        |> (names_typs) =>
+        Env.extend_fold(env, [], names_typs)  |> (new_env') =>
+        (TConst("unit"), new_env')
+      
+    | EApp(fn_expr, param_expr) => 
+        // let (fn_typ, _) = f(env, level, fn_expr);
+        // let (param_typ, return_typ) = match_fun_typ(env.new_var, fn_typ);
+        // let (param_typ1, _) = f(env, level, param_expr);
+        // unify(env.new_var, param_typ, param_typ1);
+        // (return_typ, env);
+
+        f(env, level, fn_expr)                    >>= ((fn_typ, _)) =>
+        match_fun_typ(env.new_var, fn_typ)        |> ((param_typ, return_typ)) =>
+        f(env, level, param_expr)                 >|= ((param_typ', _)) =>
+        unify(env.new_var, param_typ, param_typ') |> () =>
+        (return_typ, env)
+
+    | EList(l) => 
+        // let (list_typ, _) = 
+        //   infer_exn(env, level, l, []) 
+        //   |> ((typs, new_env)) => 
+        //     switch (typs) {
+        //     | [] => (TList(env.new_var(level)), new_env)
+        //     | [lone] => (TList(lone), new_env)
+        //     | [first, ...rest] => 
+        //       try (List.iter(unify(env.new_var,first), rest)) {
+        //       | Type_error(msg) => raise(Type_error("List" ++ msg))
+        //       };
+        //       (TList(first), new_env);
+        //     };
+
+
+        infer_exn(env, level, l, [])  >|= ((typs, new_env)) => 
+        switch (typs) {
+        | [] => (TList(env.new_var(level)), new_env)
+        | [lone] => (TList(lone), new_env)
+        | [first, ...rest] => 
+          try (List.iter(unify(env.new_var,first), rest)) {
+          | Type_error(msg) => raise(Type_error("List" ++ msg))
+          };
+          (TList(first), new_env);
+        }
+        |> ((list_typ, _)) => (list_typ, env);
+      
+    | ETuple(l) => 
+        infer_exn(env, level, l, [])  >|= ((tuple_typs, _)) =>
         (TTuple(tuple_typs), env);
-      }
-    | ERecEmpty => (TRec(TRowEmpty), env)
+      
+    | ERecEmpty => Lwt.return @@ (TRec(TRowEmpty), env)
+
     | ERecSelect(rec_expr, label)=>
       let rest_row_typ = env.new_var(level);
       let field_typ = env.new_var(level);
       let param_typ = TRec(TRowExtend(label, field_typ, rest_row_typ));
-      let (rec_typ, _) = f(env, level, rec_expr);
-      unify(env.new_var, param_typ, rec_typ);
-      (field_typ, env);
+
+      // let (rec_typ, _) = f(env, level, rec_expr);
+      // unify(env.new_var, param_typ, rec_typ);
+      // (field_typ, env);
+
+      f(env, level, rec_expr)                 >|= ((rec_typ, _)) =>
+      unify(env.new_var, param_typ, rec_typ)  |> () =>
+      (field_typ, env)
+
     | ERecExtend(label, expr, rec_expr) =>
       let rest_row_typ = env.new_var(level);
       let field_typ = env.new_var(level);
       let param_typ1 = field_typ;
       let param_typ2 = TRec(rest_row_typ);
       let return_typ = TRec(TRowExtend(label, field_typ, rest_row_typ));
-      f(env, level, expr) |> ((expr_typ, _)) => unify(env.new_var, param_typ1, expr_typ);
-      f(env, level, rec_expr) |> ((rec_typ, _)) => unify(env.new_var, param_typ2, rec_typ);
+
+      // f(env, level, expr) |> ((expr_typ, _)) => unify(env.new_var, param_typ1, expr_typ);
+      // f(env, level, rec_expr) |> ((rec_typ, _)) => unify(env.new_var, param_typ2, rec_typ);
+      // (return_typ, env)
+
+      f(env, level, expr)                       >>= ((expr_typ, _)) =>
+      unify(env.new_var, param_typ1, expr_typ)  |> () =>
+      f(env, level, rec_expr)                   >|= ((rec_typ, _)) => 
+      unify(env.new_var, param_typ2, rec_typ)   |> () =>
       (return_typ, env)
+
     | EOpt(opt) => 
       switch (opt) {
-      | Some(expr) => f(env, level, expr) |> ((expr_typ, _)) => (TOpt(expr_typ), env)
-      | None       => (TOpt(env.new_var(level)), env)
+      | Some(expr) => f(env, level, expr) >|= ((expr_typ, _)) => (TOpt(expr_typ), env)
+      | None       => Lwt.return @@ (TOpt(env.new_var(level)), env)
       }
+
     | ETag(tag, expr) => 
       let rest_row_typ = env.new_var(level);
       let tag_typ = env.new_var(level);
-      let param_typ = TTag(tag_typ)
-      let return_typ = TTag(TRowExtend(tag, tag_typ, rest_row_typ))
-      let (tag_expr_typ, _) = f(env, level, expr);
-      unify(env.new_var, param_typ, tag_expr_typ);
+      let param_typ = TTag(tag_typ);
+      let return_typ = TTag(TRowExtend(tag, tag_typ, rest_row_typ));
+
+      // let (tag_expr_typ, _) = f(env, level, expr);
+      // unify(env.new_var, param_typ, tag_expr_typ);
+      // (return_typ, env)
+
+      f(env, level, expr)                         >|= ((tag_expr_typ, _)) =>
+      unify(env.new_var, param_typ, tag_expr_typ) |> () =>
       (return_typ, env)
+
     | ESeq(expr1, expr2) => 
-      let (typs, _) = infer_exn(env, level, [expr1, expr2], []);
+      infer_exn(env, level, [expr1, expr2], [])   >|= ((typs, _)) =>
       (typs |> List.rev |> List.hd, env);
+
     | EPrim(prim) =>
-      typ_of_primitive(prim, env)
+      typ_of_primitive(env, level, prim)
+    
     | EMod(name, exprs) => 
-      infer_exn(env, level, exprs, []) |> ((_, mod_env:Env.t)) =>
-      (TConst("unit"), Env.extend(env,[],name ,TMod(mod_env.tvars)))
+      infer_exn(env, level, exprs, []) >|= ((_, mod_env:Env.t)) =>
+      (TConst("unit"), Env.extend(env, [], name, TMod(mod_env.tvars)))
+
     | EOpen(path, modname) => 
       switch (Env.lookup(env, path, modname, expr.pexpr_loc)) {
-      | TMod(mod_env) => (TConst("unit"),Env.extend_fold(env, [], mod_env))
+      | TMod(mod_env) => Lwt.return @@ (TConst("unit"),Env.extend_fold(env, [], mod_env))
       | _ => raise(Type_error([%string "open %{modname}: %{modname} is not a module!"]))
       }
-    | EGraphql(_) => (TConst("graphql_query"), env)
+      
+    | EGraphql(_) => Lwt.return @@ (TConst("graphql_query"), env)
     // | _ => raise(Type_error("infer not implmented"))
     }
-    and typ_of_primitive = (prim, env) => switch (prim) {
+    and typ_of_primitive = (env, level, prim) => 
+      switch (prim) {
+      // Int primitive functions
+      | PIntAdd(a_expr, b_expr) => 
+        infer_exn(env, level, [a_expr, b_expr], [])         >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("int")), typs)  |> () =>
+        (TConst("int"), env)
+      | PIntSub(a_expr, b_expr) =>
+        infer_exn(env, level, [a_expr, b_expr], [])         >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("int")), typs)  |> () =>
+        (TConst("int"), env)
+      | PIntMul(a_expr, b_expr) => 
+        infer_exn(env, level, [a_expr, b_expr], [])         >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("int")), typs)  |> () =>
+        (TConst("int"), env)
+      | PIntDiv(a_expr, b_expr) =>
+        infer_exn(env, level, [a_expr, b_expr], [])         >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("int")), typs)  |> () =>
+        (TConst("int"), env)
+      | PIntNeg(a_expr) =>
+        infer_exn(env, level, [a_expr], [])                 >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("int")), typs)  |> () =>
+        (TConst("int"), env)
+
+      // Float primitive functions
+      | PFloatAdd(a_expr, b_expr) => 
+        infer_exn(env, level, [a_expr, b_expr], [])           >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("float")), typs)  |> () =>
+        (TConst("float"), env)
+      | PFloatSub(a_expr, b_expr) => 
+        infer_exn(env, level, [a_expr, b_expr], [])           >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("float")), typs)  |> () =>
+        (TConst("float"), env)
+      | PFloatMul(a_expr, b_expr) => 
+        infer_exn(env, level, [a_expr, b_expr], [])           >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("float")), typs)  |> () =>
+        (TConst("float"), env)
+      | PFloatDiv(a_expr, b_expr) => 
+        infer_exn(env, level, [a_expr, b_expr], [])           >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("float")), typs)  |> () =>
+        (TConst("float"), env)
+      | PFloatNeg(a_expr) =>
+        infer_exn(env, level, [a_expr], [])                   >|= ((typs, _)) =>
+        List.iter(unify(env.new_var, TConst("float")), typs)  |> () =>
+        (TConst("float"), env)
+
+      // List primitive functions
       | PListCons(el_expr, list_expr) =>
-        let (typs, _) = infer_exn(env, level, [el_expr, list_expr], []) |> ((inferred, nenv)) =>
+        infer_exn(env, level, [el_expr, list_expr], []) >|= ((inferred, nenv)) =>
         switch (inferred) {
-          | [_, _] as l => (l, nenv)
-          | _ => raise(Type_error("cons_list wrong number of arguments"))
-        };
-        let typ = List.hd(typs);
+        | [_, _] as l => (l, nenv)
+        | _ => raise(Type_error("PListCons: wrong number of arguments"))
+        }             |> ((typs, _)) =>
+        List.hd(typs) |> (typ) => 
         List.iter2(
           unify(env.new_var), 
           typs,
           [typ, TList(typ)]
-        );
+        ) |> () =>        
         (TList(typ), env);
-      | PIntAdd(a_expr, b_expr)       => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("int")), typs);
-        (TConst("int"), env)
-      | PIntSub(a_expr, b_expr)                 =>
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("int")), typs); 
-        (TConst("int"), env)
-      | PIntMul(a_expr, b_expr)                 => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("int")), typs);
-        (TConst("int"), env)
-      | PIntDiv(a_expr, b_expr)                 =>
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("int")), typs); 
-        (TConst("int"), env)
-      | PFloatAdd(a_expr, b_expr)               => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("float")), typs);
-        (TConst("float"), env)
-      | PFloatSub(a_expr, b_expr)               => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("float")), typs);
-        (TConst("float"), env)
-      | PFloatMul(a_expr, b_expr)               => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("float")), typs);
-        (TConst("float"), env)
-      | PFloatDiv(a_expr, b_expr)               => 
-        let (typs, _) = infer_exn(env, level, [a_expr,b_expr], []);
-        List.iter(unify(env.new_var, TConst("float")), typs);
-        (TConst("float"), env)
-      | PGraphQL(_) => raise(Type_error("graphql not implemented"))
+        
+      | PListMap(efun, elist) =>
+        let (t1, t2) = (env.new_var(level), env.new_var(level));
+
+        infer_exn(env, level, [efun, elist], []) >|= ((inferred, nenv)) =>
+        switch (inferred) {
+        | [_, _] as l => (l, nenv)
+        | _ => raise(Type_error("PListMap: wrong number of arguments"))
+        } |> ((typs, _)) =>
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TFun(t1, t2), TList(t1)]
+        ) |> () =>
+        (TList(t2), env);
+
+      | PListMapi(efun, elist) => 
+        let (t1, t2) = (env.new_var(level), env.new_var(level));
+
+        infer_exn(env, level, [efun, elist], []) >|= ((inferred, nenv)) =>
+        switch (inferred) {
+        | [_, _] as l => (l, nenv)
+        | _ => raise(Type_error("PListMapi: wrong number of arguments"))
+        } |> ((typs, _)) =>
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TFun(t1, TFun(TConst("int"), t2)), TList(t1)]
+        ) |> () => 
+        (TList(t2), env);
+
+      | PListFoldl(efun, eacc, elist) =>
+        let (t1, t2) = (env.new_var(level), env.new_var(level));
+
+        infer_exn(env, level, [efun, eacc, elist], []) >|= ((inferred, nenv)) =>
+        switch (inferred) {
+        | [_, _, _] as l => (l, nenv)
+        | _ => raise(Type_error("PListFoldl: wrong number of arguments"))
+        } |> ((typs, _)) =>
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TFun(t2, TFun(t1, t2)), t2, TList(t1)]
+        ) |> () =>
+
+        (t2, env);
+
+      | PListFoldr(efun, elist, eacc) =>
+        let (t1, t2) = (env.new_var(level), env.new_var(level));
+
+        infer_exn(env, level, [efun, elist, eacc], []) >|= ((inferred, nenv)) =>
+        switch (inferred) {
+        | [_, _, _] as l => (l, nenv)
+        | _ => raise(Type_error("PListFoldr: wrong number of arguments"))
+        } |> ((typs, _)) =>
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TFun(t1, TFun(t2, t2)), TList(t1), t2]
+        ) |> () =>
+        (t2, env);
     };
 
   switch (exprs) {
   | [e, ...rest] => 
-    f(env, level, e) |> ((typ, new_env)) =>
-    infer_exn(new_env, level, rest, typs@[typ])
-  | [] => (typs, env)
+    f(env, level, e) >>= ((typ, new_env)) =>
+    infer_exn(new_env, level, rest, typs @ [typ])
+  | [] => Lwt.return @@ (typs, env)
   }
 };
 
-
-let infer = (env, level, e) =>
-  try (R.ok @@ infer_exn(env, level, e, [])) {
-  | Type_error(msg) => R.error_msg(msg)
+let infer = (~env=Env.empty, ~level=0, e) =>
+  try (Lwt_result.ok @@ infer_exn(env, level, e, [])) {
+  | Type_error(msg) => Lwt.return @@ Rresult.R.error_msg(msg)
   };

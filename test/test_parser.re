@@ -179,6 +179,7 @@ let test_cases = [
   ("external f = \"int_add\";",                     mk_expr(ELet(mk_pvar("f"), mk_expr(EFun(mk_pvar("a"), mk_expr(EFun(mk_pvar("b"), mk_expr(EPrim(PIntAdd(mk_evar("a"), mk_evar("b"))))))))))),
 
   // Operator definition
+  ("let (*) = f;",                                  mk_expr(ELet(mk_pvar("*"), mk_evar("f")))),
   ("let (+) = (a, b) => a;",                        mk_expr(ELet(mk_pvar("+"), mk_expr(EFun(mk_pvar("a"), mk_expr(EFun(mk_pvar("b"), mk_evar("a")))))))),
   ("let (.~) = (a) => f(a);",                       mk_expr(ELet(mk_pvar("~"), mk_expr(EFun(mk_pvar("a"), mk_expr(EApp(mk_evar("f"), mk_evar("a")))))))),
   
@@ -234,7 +235,7 @@ let cmp_ast = (ast, ast') =>
   };
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~cmp=cmp_ast, ~printer=pp_ast, expected, Mesh.parse_file(mesh_src));
+  String.escaped(mesh_src) >:: (_) => assert_equal(~cmp=cmp_ast, ~printer=pp_ast, expected, Lwt_main.run @@ Mesh.parse(mesh_src));
 
 let suite = 
   "test_parser" >::: List.map(make_single_test, test_cases);

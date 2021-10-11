@@ -100,6 +100,42 @@ let test_cases = [
     let r2 = {...r, a: 3};
     r2.a;",                                 [VInt(3)]),
 
+  // Stdlib
+  ("1 + 2;",                                [VInt(3)]),
+  ("3 - 2;",                                [VInt(1)]),
+  ("3 * 2;",                                [VInt(6)]),
+  ("4 / 2;",                                [VInt(2)]),
+
+  ("1.0 +. 2.0;",                           [VFloat(3.0)]),
+  ("3.0 -. 2.0;",                           [VFloat(1.0)]),
+  ("3.0 *. 2.0;",                           [VFloat(6.0)]),
+  ("3.0 /. 2.0;",                           [VFloat(1.5)]),
+
+  ("let l = [1, 2];
+    [0, ...l];",                            [VList([VInt(0), VInt(1), VInt(2)])]),
+
+  ("let f = (x) => x - 1;
+    3 |> f;",                               [VInt(2)]),
+
+  ("let l = [1, 2, 3];
+    let f = (x) => x + 1;
+    List.map(f, l);",                       [VList([VInt(2), VInt(3), VInt(4)])]),
+
+  ("let l = [1, 2, 3];
+    List.map((x) => x + 1, l);",            [VList([VInt(2), VInt(3), VInt(4)])]),
+
+  ("let l = [1, 2, 3];
+    let f = (i, x) => x + i;
+    List.mapi(f, l);",                      [VList([VInt(1), VInt(3), VInt(5)])]),
+
+  ("let l = [1, 2, 3];
+    List.foldl((acc, x) => acc + x, 0, l);",                      
+    [VInt(6)]),
+
+  ("let l = [1, 2, 3];
+    List.foldr((x, acc) => acc + x, l, 0);",                      
+    [VInt(6)]),
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 
@@ -111,7 +147,7 @@ let pp_value = (values) =>
   };
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Mesh.parse_file(mesh_src) >>= (ast) => Lwt_main.run @@ Mesh.Eval.eval(ast) >>| fst);
+  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Lwt_main.run @@ Mesh.parse_eval(mesh_src) >>| fst);
 
 let suite = 
   "test_eval" >::: List.map(make_single_test, test_cases);

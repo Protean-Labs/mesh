@@ -21,7 +21,8 @@ let string  = (alpha|digit|'_')*
 let lident     = ['a'-'z'] string 
 let uident     = ['A'-'Z'] string
 
-let operator = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@' | '~')+
+let operator_symbol = ('+' | '-' | '*' | '/' | '=' | '!' | '?' | '<' | '>' | '|' | '&' | ':' | '@' | '~')
+let operator = operator_symbol (operator_symbol | '.')*
 
 let white   = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
@@ -32,6 +33,7 @@ rule token = parse
 (* White space *)
 | newline           { Lexing.new_line lexbuf; token lexbuf }
 | white             { token lexbuf }
+| "//"              { read_single_line_comment lexbuf }
 
 | '_'               { UNDERSCORE }
 | '='               { EQUALS }
@@ -86,3 +88,8 @@ and read_extension name buf = parse
 | [^ '`' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf); read_extension name buf lexbuf}
 | eof               { raise (Syntax_error ("Extension block is not terminated")) }
 | _                 { raise (Syntax_error ("Illegal extension block character: " ^ Lexing.lexeme lexbuf)) }
+
+and read_single_line_comment = parse
+| newline           { Lexing.new_line lexbuf; token lexbuf }
+| eof               { EOF }
+| _                 { read_single_line_comment lexbuf }

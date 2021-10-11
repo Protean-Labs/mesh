@@ -45,13 +45,24 @@ and expr_desc =
   | EPrim(primitive)
   | EGraphql(Extensions.Graphql.t)
 and primitive = 
-  | PListCons(expr, expr)
+  // Int primitive functions
   | PIntAdd(expr, expr)
   | PIntSub(expr, expr)
   | PIntMul(expr, expr)
   | PIntDiv(expr, expr)
+  | PIntNeg(expr)
+  // Float primitive functions
   | PFloatAdd(expr, expr)
   | PFloatSub(expr, expr)
   | PFloatMul(expr, expr)
   | PFloatDiv(expr, expr)
-  | PGraphQL(expr, expr);
+  | PFloatNeg(expr)
+  // List primitive functions
+  | PListCons(expr, expr)
+  | PListMap(expr, expr)
+  | PListMapi(expr, expr)
+  | PListFoldl(expr, expr, expr)
+  | PListFoldr(expr, expr, expr)
+  // GraphQL primitive functions
+  // | PGraphqlExec(expr, expr)
+;

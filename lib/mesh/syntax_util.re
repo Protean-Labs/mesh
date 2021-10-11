@@ -82,7 +82,7 @@ let rec string_of_expr = (~level=0, ~print_loc=false, expr) => {
     String.concat(".", path)  |> (path) =>
     [%string "%{indent}(EOpen %{maybe_print_loc print_loc expr} %{path}.%{name})"]
   | EPrim(prim)         => string_of_primitive(~level, prim)
-  | EGraphql(_)         => [%string "%{indent}(EGraphql ...)"]
+  | EGraphql(raw_query, _)         => [%string "%{indent}(EGraphql \n%{raw_query})"]
   }
 }
 and string_of_primitive = (~level=0, prim) => {
@@ -107,7 +107,7 @@ and string_of_primitive = (~level=0, prim) => {
   | PListFoldl(e1, e2, e3)  => [%string "%{indent}(list_foldl\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
   | PListFoldr(e1, e2, e3)  => [%string "%{indent}(list_foldr\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
   // GraphQL primitive functions
-  // | PGraphqlExec(e1, e2) => [%string "%{indent}(graphql_exec\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PGraphqlExec(e1, e2) => [%string "%{indent}(graphql_exec\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   };
 }
 

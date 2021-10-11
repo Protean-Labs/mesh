@@ -91,7 +91,7 @@ expr:
       match name with
       | "graphql" -> 
         let query = Extensions.Graphql.(parse @@ lex(body)) in
-        mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EGraphql query)
+        mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EGraphql (body, query))
       | name -> raise (Parsing_error [%string "Unknown extension %{name}"]) }
 
   | lit = literal                                           

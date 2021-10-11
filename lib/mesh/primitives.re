@@ -41,7 +41,7 @@ let primitive_of_name = fun
   | "list_foldr"  => mk_3args_primitive(mk_expr(EPrim(PListFoldr(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
 
   // GraphQL
-  // | "graphql_execute" => mk_2args_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a"), mk_evar("b")))))
+  | "graphql_execute" => mk_2args_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a"), mk_evar("b")))))
   
   | name          => raise(Invalid_primitive(name))
 ;

@@ -19,6 +19,7 @@ and value =
   | VMod(environment)
   | VRecord(list((name, value)))
   | VOpt(option(value))
+  | VGraphqlQuery(string)
 ;
 
 let value_of_lit = fun
@@ -57,6 +58,7 @@ let rec string_of_value = (~level=0, value) => {
     | Some(value) =>  [%string "%{indent}Some(%{string_of_value value})"]
     | None =>         [%string "%{indent}None"]
     }
+  | VGraphqlQuery(query) => [%string "%{indent}%{query}"]
   };
 };
 
@@ -110,6 +112,7 @@ let rec value_to_yojson = (record) =>
     | Some(v) => value_to_yojson(v)
     | None    => `Null
     }
+  | VGraphqlQuery(query) => `String(query)
   };
 
 let eval_graphql = (uri, query) =>{
@@ -203,6 +206,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
       | Some(e) => eval_value(env, e) >|= (v) => VOpt(Some(v))
       | None => Lwt.return @@ VOpt(None)
       }
+    | EGraphql(raw_query, _) => Lwt.return @@ VGraphqlQuery(raw_query)
     | _ => raise(Runtime_error("eval not implemented"))
     }
   and eval_prim = (env, prim) =>
@@ -295,7 +299,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
       // }
     // GraphQL primitive functions
     // TODO: Graphql query execution
-    // | PGraphqlExec(e1, e2) => switch (eval_non_let(env, e1), eval_non_let(env, e2)) { | (VString(a), VGraphqlQuery(b)) =>  | _ => raise(Runtime_error([%string "PFloatDiv: Unexpected types"]))}
+    | PGraphqlExec(e1, e2) => Lwt.both(eval_value(env, e1), eval_value(env, e2)) >>= (e) => switch (e) { | (VString(uri), VGraphqlQuery(query)) => eval_graphql(uri, query) | _ => raise(Runtime_error([%string "PGraphqlExec: Unexpected types"]))}
     };
 
   let eval_env = (env, expr) =>

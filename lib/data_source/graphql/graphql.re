@@ -2,13 +2,13 @@ exception Graphql_error(string);
 
 module Client = Client;
 
-let test = Client.validate(Uri.of_string("https://countries.trevorblades.com/"), {|
-  query {
-    country(code: "BR") {
-      name
-    }
-  }
-|});
+// let test = Client.validate(Uri.of_string("https://countries.trevorblades.com/"), {|
+//   query {
+//     country(code: "BR") {
+//       name
+//     }
+//   }
+// |});
 
 
 /**

@@ -43,7 +43,7 @@ and expr_desc =
   | ETag(name, expr)
   | EOpen(list(name), name)
   | EPrim(primitive)
-  | EGraphql(Extensions.Graphql.t)
+  | EGraphql(string, Extensions.Graphql.t)
 and primitive = 
   // Int primitive functions
   | PIntAdd(expr, expr)
@@ -64,5 +64,5 @@ and primitive =
   | PListFoldl(expr, expr, expr)
   | PListFoldr(expr, expr, expr)
   // GraphQL primitive functions
-  // | PGraphqlExec(expr, expr)
+  | PGraphqlExec(expr, expr)
 ;

@@ -61,14 +61,25 @@ let typ_of_graphql_query = (uri, query) => {
     | Fr_fragment_spread(_) => raise(Type_error("GraphQL: Fragments not supported"))
     };
 
-  Lwt_result.map((ops) => 
-    switch (ops) {
+  Data_source.Graphql.Client.validate(Uri.of_string(uri), query) >|= (maybe_query) =>
+  switch (maybe_query) {
+  | Ok(query) => 
+    switch (query) {
     | [(Def_operation({inner, _}), _)] => typ_of_result_structure(inner);
     | [(Def_fragment(_), _)] => raise(Type_error("GraphQL: Fragments not supported"))
     | _ => raise(Type_error("GraphQL: Only single query supported"))
-    },
-    Data_source.Graphql.Client.validate(Uri.of_string(uri), query)
-  );
+    }
+  | Error(`Msg(msg)) => raise(Type_error([%string "typ_of_graphql_query: %{msg}"]))
+  };
+
+  // Lwt_result.map((ops) => 
+  //   switch (ops) {
+  //   | [(Def_operation({inner, _}), _)] => typ_of_result_structure(inner);
+  //   | [(Def_fragment(_), _)] => raise(Type_error("GraphQL: Fragments not supported"))
+  //   | _ => raise(Type_error("GraphQL: Only single query supported"))
+  //   },
+  //   Data_source.Graphql.Client.validate(Uri.of_string(uri), query)
+  // );
 };
 
 let string_of_typ = (typ) => {
@@ -699,6 +710,23 @@ let rec infer_exn = (env, level, exprs, typs) => {
           [TFun(t1, TFun(t2, t2)), TList(t1), t2]
         ) |> () =>
         (t2, env);
+
+      | PGraphqlExec(e_uri, e_query) =>
+        // infer_exn(env, level, [a_expr], [])                   >|= ((typs, _)) =>
+        // List.iter(unify(env.new_var, TConst("float")), typs)  |> () =>
+        // (TConst("float"), env)
+
+        infer_exn(env, level, [e_uri, e_query], [])   >>= ((typs, _)) =>
+        List.iter2(
+          unify(env.new_var), 
+          typs,
+          [TConst("string"), TConst("graphql_query")]
+        ) |> () =>
+        switch (e_uri, e_query) {
+        | ({pexpr_desc: ELit(String(uri)), _}, {pexpr_desc: EGraphql(_, query), _}) =>
+          typ_of_graphql_query(uri, query) >|= (typ) => (typ, env)
+        | _ => raise(Type_error("PGraphqlExec: Invalid types"))
+        }
     };
 
   switch (exprs) {

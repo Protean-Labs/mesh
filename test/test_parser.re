@@ -201,18 +201,46 @@ let test_cases = [
 
   // Extensions
   // TODO: Make test compare query 
-  // ("let query = ```graphql
-  //     query {
-  //       country(code: \"BR\") {
-  //         name
-  //       }
-  //     }
-  //   ```;
-    
-  //   Graphql.execute: string => graphql_query => 'b;
-
-  //   let data = Graphql.execute(\"http://www.endpoint.com/graphql\", query);",
-  //   mk_expr(EGraphql([])))
+  ("```graphql
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```;", mk_expr(EGraphql("
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ",[]))),
+  ("let query = ```graphql
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```;", mk_expr(ELet(mk_pvar("query"), mk_expr(EGraphql("
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ",[]))))),
+  ("let data = Graphql.execute(\"http://www.endpoint.com/graphql\", ```graphql
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```);",
+    mk_expr(ELet(mk_pvar("data"), mk_expr(EApp(mk_expr(EApp(mk_evar(~path=["Graphql"], "execute"), mk_elit_string("http://www.endpoint.com/graphql"))), mk_expr(EGraphql("
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ",[])))))))
 
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 

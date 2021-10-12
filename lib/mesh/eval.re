@@ -6,6 +6,8 @@ open Parsetree_util;
 
 exception Runtime_error(string);
 
+// let logger = Easy_logging.Logging.make_logger("Mesh.Eval", Debug, [Cli(Debug)]);
+
 type environment = list((name, value))
 and value = 
   | VInt(int)
@@ -19,7 +21,7 @@ and value =
   | VMod(environment)
   | VRecord(list((name, value)))
   | VOpt(option(value))
-  | VGraphqlQuery(string, string);
+  | VGraphqlQuery(string, string, Extensions.Graphql.t);
 
 type eval_result = Lwt_result.t((list(value), environment), Rresult.R.msg);
 
@@ -59,7 +61,7 @@ let rec string_of_value = (~level=0, value) => {
     | Some(value) =>  [%string "%{indent}Some(%{string_of_value value})"]
     | None =>         [%string "%{indent}None"]
     }
-  | VGraphqlQuery(uri, query) => [%string "%{indent}%{uri}\n%{indent}%{query}"]
+  | VGraphqlQuery(uri, query, _) => [%string "%{indent}%{uri}\n%{indent}%{query}"]
   };
 };
 
@@ -116,11 +118,34 @@ let rec value_to_yojson = (record) =>
   | VGraphqlQuery(_) => `String("graphql_query")
   };
 
-let eval_graphql = (uri, query) =>{
-  let uri = Uri.of_string(uri);
+let eval_graphql = (uri, raw_query, query) => {
+  open Typetree;
 
-  Data_source.Graphql.Client.query(uri, query) >|= (data) =>
-  switch (R.map(value_of_yojson, data)) {
+  let rec gql_to_value = (typ, data) => 
+    switch (typ, data) {
+    | (TConst("bool"), `Bool(v))      => VBool(v)
+    | (TConst("int"), `Int(v))        => VInt(v)
+    | (TConst("float"), `Float(v))    => VFloat(v)
+    | (TConst("string"), `String(v))  => VString(v)
+    | (TList(typ'), `List(v))         => VList(List.map(gql_to_value(typ'), v))
+    | (TRec(typ'), `Assoc(l))         => VRecord(gql_assoc_to_value(typ', l))
+    | (TOpt(_), `Null)                => VOpt(None)
+    | (TOpt(typ'), v)                 => VOpt(Some(gql_to_value(typ', v)))
+    | (typ, value)                    => 
+      raise(Runtime_error([%string "gql_to_value: Non-matching type-value %{Typetree_util.string_of_typ typ} %{Yojson.Basic.to_string value}"]))
+    }
+  and gql_assoc_to_value = (typ, data) =>
+    switch (typ, data) {
+    | (TRowExtend(_, typ', typ_rest), [(name, v), ...rest]) => 
+      [(name, gql_to_value(typ', v)), ...gql_assoc_to_value(typ_rest, rest)]
+    | (TRowEmpty, []) => []
+    | _ => raise(Runtime_error("gql_assoc_to_value: Not records"))
+    };
+
+
+  Infer.typ_of_graphql_query(uri, query)                          >>= (typ) =>
+  Data_source.Graphql.Client.query(Uri.of_string(uri), raw_query) >|= (data) =>
+  switch (R.map(gql_to_value(typ), data)) {
   | Error(`Msg(msg)) => raise(Runtime_error(msg))
   | Ok(r) => r
   };
@@ -207,7 +232,7 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
       | Some(e) => eval_value(env, e) >|= (v) => VOpt(Some(v))
       | None => Lwt.return @@ VOpt(None)
       }
-    | EGraphql(uri, raw_query, _) => Lwt.return @@ VGraphqlQuery(uri, raw_query)
+    | EGraphql(uri, raw_query, query) => Lwt.return @@ VGraphqlQuery(uri, raw_query, query)
     | _ => raise(Runtime_error("eval not implemented"))
     }
   and eval_prim = (env, prim) =>
@@ -245,13 +270,6 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
           l
         )
         >|= (v) => VList(v)
-        // VList(List.mapi((i, argv) => 
-        //   switch (eval_value(bind_pat_value(pat, VInt(i)) @ env', e)) {
-        //   | VClosure(env', EFun(pat, e)) => eval_value(bind_pat_value(pat, argv) @ env', e)
-        //   | _ => raise(Runtime_error([%string "PListMapi: Unexpected types"]))
-        //   },
-        //   l
-        // ))
       | _ => raise(Runtime_error([%string "PListMapi: Unexpected types"]))
       }
 
@@ -286,22 +304,11 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
         )
       | _ => raise(Runtime_error([%string "PListFoldl: Unexpected types"]))
       }
-      // switch (eval_value(env, e1), eval_value(env, e2), eval_value(env, e3)) {
-      // | (VClosure(env', EFun(pat, e)), VList(l), acc) => 
-      //   List.fold_right((argv, acc) => 
-      //     switch (eval_value(bind_pat_value(pat, argv) @ env', e)) {
-      //     | VClosure(env', EFun(pat, e)) => eval_value(bind_pat_value(pat, acc) @ env', e)
-      //     | _ => raise(Runtime_error([%string "PListFoldr: Unexpected types"]))
-      //     },
-      //     l,
-      //     acc
-      //   )
-      // | _ => raise(Runtime_error([%string "PListFoldr: Unexpected types"]))
-      // }
+
     // GraphQL primitive functions
     // TODO: Revisit graphql_execute with URI
     // | PGraphqlExec(e1, e2) => Lwt.both(eval_value(env, e1), eval_value(env, e2)) >>= (e) => switch (e) { | (VString(uri), VGraphqlQuery(query)) => eval_graphql(uri, query) | _ => raise(Runtime_error([%string "PGraphqlExec: Unexpected types"]))}
-    | PGraphqlExec(e) => eval_value(env, e) >>= (e) => switch (e) { | VGraphqlQuery(uri, query) => eval_graphql(uri, query) | _ => raise(Runtime_error([%string "PGraphqlExec: Unexpected types"])) }
+    | PGraphqlExec(e) => eval_value(env, e) >>= (e) => switch (e) { | VGraphqlQuery(uri, raw_query, query) => eval_graphql(uri, raw_query, query) | _ => raise(Runtime_error([%string "PGraphqlExec: Unexpected types"])) }
     };
 
   let eval_env = (env, expr) =>

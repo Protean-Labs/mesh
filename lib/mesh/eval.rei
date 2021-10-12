@@ -15,7 +15,7 @@ and value =
   | VMod(environment)
   | VRecord(list((name, value)))
   | VOpt(option(value))
-  | VGraphqlQuery(string, string);
+  | VGraphqlQuery(string, string, Extensions.Graphql.t);
 
 type eval_result = Lwt_result.t((list(value), environment), Rresult.R.msg);
 

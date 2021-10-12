@@ -22,10 +22,12 @@ let query = (uri, query) => {
     Body.to_string(resp.body) >|= (body) =>
     switch (body) {
     | Error(msg) => R.error_msg(Error.to_string(msg))
-    | Ok(body) => R.ok @@ Yojson.Basic.from_string(body)
+    | Ok(body) => R.ok @@ (Yojson.Basic.from_string(body) |> Yojson.Basic.Util.member("data"))
     }
   };
 };
+
+let schemas = Hashtbl.create(16);
 
 let introspection = (uri) => {
   let introspection_query = {|
@@ -118,7 +120,15 @@ let introspection = (uri) => {
     }  
   |};
 
-  query(uri, introspection_query)
+  switch (Hashtbl.find_opt(schemas, uri)) {
+  | Some(schema) => Lwt_result.return @@ schema
+  | None =>
+    Lwt_result.map((schema) => 
+      Hashtbl.add(schemas, uri, schema) |> () => 
+      schema,
+      query(uri, introspection_query)
+    )
+  }
 };
 
 let make_schema = (schema) => {  

@@ -1,5 +1,6 @@
 open OUnit2;
 open Rresult;
+open Lwt.Infix;
 
 open Mesh.Typetree;
 open Mesh.Typetree_util;
@@ -222,11 +223,11 @@ let pp_typ_signatures = (typs) =>
   }
 
 
-let make_single_test = ((mesh_expr, expected)) =>
-  (mesh_expr) >:: (_) => {
-    // assert_equal(~printer=pp_typ_signatures, expected, infer(Env.empty, 0, [mesh_expr]));
-    assert_equal(~printer=pp_typ_signatures, expected, Rresult.R.map(fst) @@ Lwt_main.run @@ Mesh.parse_infer(mesh_expr));
-  }
+let make_single_test = ((mesh_src, expected)) =>
+  String.escaped(mesh_src) >:: OUnitLwt.lwt_wrapper((_) => 
+    Lwt_result.map(fst, Mesh.parse_infer(mesh_src)) >|= (typs) => 
+    assert_equal(~printer=pp_typ_signatures, expected, typs)
+  )
 
 let suite = 
   "test_infer" >::: List.map(make_single_test, test_cases);

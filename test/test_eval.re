@@ -1,6 +1,6 @@
 open OUnit2;
 open Rresult;
-open R.Infix;
+open Lwt.Infix;
 
 open Mesh.Eval;
 
@@ -157,7 +157,10 @@ let pp_value = (values) =>
   };
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Lwt_main.run @@ Mesh.parse_eval(mesh_src) >>| fst);
+  String.escaped(mesh_src) >:: OUnitLwt.lwt_wrapper((_) => 
+    Lwt_result.map(fst, Mesh.parse_eval(mesh_src)) >|= (values) => 
+    assert_equal(~printer=pp_value, expected, values)
+  );
 
 let suite = 
   "test_eval" >::: List.map(make_single_test, test_cases);

@@ -1,5 +1,6 @@
 open OUnit2;
 open Rresult;
+open Lwt.Infix;
 
 open Mesh.Parsetree;
 open Mesh.Parsetree_util;
@@ -253,17 +254,17 @@ let pp_ast = (ast) =>
   }
 
 let cmp_ast = (ast, ast') =>
-  switch (
+  R.Infix.(switch (
     ast   >>= (ast) =>
     ast'  >>| (ast') =>
     List.fold_left2((acc, e, e') => acc && assert_expr_equal(e, e'), true, ast, ast')
   ) {
   | Ok(true) => true
   | _ => false
-  };
+  });
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~cmp=cmp_ast, ~printer=pp_ast, expected, Lwt_main.run @@ Mesh.parse(mesh_src));
+  String.escaped(mesh_src) >:: OUnitLwt.lwt_wrapper((_) => Mesh.parse(mesh_src) >|= (ast) => assert_equal(~cmp=cmp_ast, ~printer=pp_ast, expected, ast));
 
 let suite = 
   "test_parser" >::: List.map(make_single_test, test_cases);

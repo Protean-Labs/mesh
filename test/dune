@@ -1,4 +1,4 @@
 (test
  (name test)
- (libraries mesh common easy_logging rresult ounit2)
+ (libraries mesh common easy_logging rresult ounit2 ounit2-lwt)
  (preprocess (pps ppx_string)))

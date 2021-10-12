@@ -15,7 +15,7 @@ let string_of_typ = (typ) => {
 
   let rec f = (~level=0, ~is_simple=false, typ) => {
     let indent = indent(level);
-    switch(typ) {
+    switch (typ) {
     | TConst(name)          => [%string "%{indent}(TConst %{name})"]
     | TApp(ftyp, param_typ) => [%string "%{indent}(TApp %{f ~is_simple:true ftyp}[%{f param_typ}])"]
     | TFun(param_typ, rtyp) => 
@@ -65,7 +65,7 @@ let sig_of_typ = (typ) => {
   let concat_typ_strings = (f, typ_list) => List.map(f(false), typ_list) |>  String.concat(", ");
 
   let rec f = (is_simple, typ) => 
-    switch(typ) {
+    switch (typ) {
     | TConst(name) => name
     | TApp(ftyp, param_typ) => [%string "%{f true ftyp}[%{f false param_typ}]"]
     | TFun(param_typ, rtyp) => {

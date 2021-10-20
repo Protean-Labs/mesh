@@ -1,7 +1,9 @@
 open OUnit2;
 open Rresult;
+open Lwt.Infix;
 
-open Mesh.Infer;
+open Mesh.Typetree;
+open Mesh.Typetree_util;
 
 let test_cases = [
   ("1;",                 [TConst("int")]),
@@ -203,6 +205,15 @@ let test_cases = [
     let x = List.foldr((x, acc) => acc + x, l, 0);
     x;",                      
     [TConst("unit"), TConst("unit"), TConst("int")]),
+
+  ("let data = Graphql.execute(```graphql(https://countries.trevorblades.com/)
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```);
+    data;", [TConst("unit"), TRec(TRowExtend("country", TOpt(TRec(TRowExtend("name", TConst("string"), TRowEmpty))), TRowEmpty))])
 ]|> List.map(((mesh_expr, expected)) => (mesh_expr, R.ok(expected)));
 
 let pp_typ_signatures = (typs) => 
@@ -212,11 +223,11 @@ let pp_typ_signatures = (typs) =>
   }
 
 
-let make_single_test = ((mesh_expr, expected)) =>
-  (mesh_expr) >:: (_) => {
-    // assert_equal(~printer=pp_typ_signatures, expected, infer(Env.empty, 0, [mesh_expr]));
-    assert_equal(~printer=pp_typ_signatures, expected, Mesh.parse_infer(mesh_expr) >>| ((typs, _)) => typs);
-  }
+let make_single_test = ((mesh_src, expected)) =>
+  String.escaped(mesh_src) >:: OUnitLwt.lwt_wrapper((_) => 
+    Lwt_result.map(fst, Mesh.parse_infer(mesh_src)) >|= (typs) => 
+    assert_equal(~printer=pp_typ_signatures, expected, typs)
+  )
 
 let suite = 
   "test_infer" >::: List.map(make_single_test, test_cases);

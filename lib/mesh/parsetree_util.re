@@ -1,4 +1,4 @@
-open Syntax;
+open Parsetree;
 
 // ================================================================
 // Literals helpers
@@ -14,8 +14,7 @@ let string_of_literal = fun
   | Float(v)  => string_of_float(v)
   | String(v) => v
   | Bool(v)   => string_of_bool(v)
-  | Unit      => "()"
-;
+  | Unit      => "()";
 
 // ================================================================
 // Expression helpers
@@ -83,10 +82,11 @@ let rec string_of_expr = (~level=0, ~print_loc=false, expr) => {
     String.concat(".", path)  |> (path) =>
     [%string "%{indent}(EOpen %{maybe_print_loc print_loc expr} %{path}.%{name})"]
   | EPrim(prim)         => string_of_primitive(~level, prim)
+  | EGraphql(_, raw_query, _)         => [%string "%{indent}(EGraphql \n%{raw_query})"]
   }
 }
-and string_of_primitive = (~level=0, prim) =>
-  indent(level)  |> (indent) =>
+and string_of_primitive = (~level=0, prim) => {
+  let indent = indent(level);
   switch (prim) {
   // Int primitive functions
   | PIntAdd(e1, e2)     => [%string "%{indent}(int_add\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
@@ -108,7 +108,9 @@ and string_of_primitive = (~level=0, prim) =>
   | PListFoldr(e1, e2, e3)  => [%string "%{indent}(list_foldr\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
   // GraphQL primitive functions
   // | PGraphqlExec(e1, e2) => [%string "%{indent}(graphql_exec\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
+  | PGraphqlExec(e)     => [%string "%{indent}(graphql_exec\n%{string_of_expr ~level:(level + 1) e}"]
   };
+}
 
 // ================================================================
 // Pattern helpers

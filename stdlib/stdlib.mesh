@@ -38,9 +38,9 @@ module Stdlib = {
   let (|>) = (a, f) => f(a);
 };
 
-// module GraphQL = {
-//   external execute = "graphql_execute";
-// };
+module Graphql = {
+  external execute = "graphql_execute";
+};
 
 // module Graphics = {
 //   module Chart = {

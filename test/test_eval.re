@@ -1,6 +1,6 @@
 open OUnit2;
 open Rresult;
-open R.Infix;
+open Lwt.Infix;
 
 open Mesh.Eval;
 
@@ -136,6 +136,16 @@ let test_cases = [
     List.foldr((x, acc) => acc + x, l, 0);",                      
     [VInt(6)]),
 
+  // Graphql
+  ("Graphql.execute(```graphql(https://countries.trevorblades.com/)
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```);",
+    [VRecord([("country", VOpt(Some(VRecord([("name", VString("Brazil"))]))))])])
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 
@@ -147,7 +157,10 @@ let pp_value = (values) =>
   };
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~printer=pp_value, expected, Mesh.parse_eval(mesh_src) >>| fst);
+  String.escaped(mesh_src) >:: OUnitLwt.lwt_wrapper((_) => 
+    Lwt_result.map(fst, Mesh.parse_eval(mesh_src)) >|= (values) => 
+    assert_equal(~printer=pp_value, expected, values)
+  );
 
 let suite = 
   "test_eval" >::: List.map(make_single_test, test_cases);

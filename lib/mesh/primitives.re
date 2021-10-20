@@ -1,5 +1,5 @@
-open Syntax;
-open Syntax_util;
+open Parsetree;
+open Parsetree_util;
 
 exception Invalid_primitive(string);
 
@@ -42,6 +42,8 @@ let primitive_of_name = fun
 
   // GraphQL
   // | "graphql_execute" => mk_2args_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a"), mk_evar("b")))))
+  // TODO: Revisit graphql_execute with URI
+  | "graphql_execute" => mk_1arg_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a")))))
   
   | name          => raise(Invalid_primitive(name))
 ;

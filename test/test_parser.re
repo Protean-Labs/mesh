@@ -1,8 +1,9 @@
 open OUnit2;
 open Rresult;
+open Lwt.Infix;
 
-open Mesh.Syntax;
-open Mesh.Syntax_util;
+open Mesh.Parsetree;
+open Mesh.Parsetree_util;
 
 exception Missing_test(string);
 
@@ -23,6 +24,7 @@ let rec assert_expr_equal = (expr, expr') =>
     (name == name') && assert_expr_equal(e1, e1') && assert_expr_equal(e2, e2')
   | (ERecSelect(e, name), ERecSelect(e', name')) => (name == name') && assert_expr_equal(e, e')
   | (ERecEmpty, ERecEmpty)                    => true
+  | (EGraphql(_), EGraphql(_))                => true
   | _                                         => false
   }
 and assert_prim_equal = (prim, prim') =>
@@ -195,8 +197,52 @@ let test_cases = [
   
   ("let f = (x) => {...x, a: 1, b: 2};",            
     mk_expr(ELet(mk_pvar("f"), mk_expr(EFun(mk_pvar("x"), mk_expr(ERecExtend("b", mk_elit_int(2), mk_expr(ERecExtend("a", mk_elit_int(1), mk_evar("x")))))))))),
-
+  
   ("r.a;",                                          mk_expr(ERecSelect(mk_evar("r"), "a"))),
+
+  // Extensions
+  // TODO: Make test compare query 
+  ("```graphql(https://countries.trevorblades.com/)
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```;", mk_expr(EGraphql("https://countries.trevorblades.com/", "
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ",[]))),
+  ("let query = ```graphql(https://countries.trevorblades.com/)
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```;", mk_expr(ELet(mk_pvar("query"), mk_expr(EGraphql("https://countries.trevorblades.com/", "
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ",[]))))),
+  ("let data = Graphql.execute(```graphql(https://countries.trevorblades.com/)
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ```);",
+    mk_expr(ELet(mk_pvar("data"), mk_expr(EApp(mk_evar(~path=["Graphql"], "execute"), mk_expr(EGraphql("https://countries.trevorblades.com/", "
+      query {
+        country(code: \"BR\") {
+          name
+        }
+      }
+    ",[])))))))
+
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok([expected])));
 
 let pp_ast = (ast) => 
@@ -208,17 +254,17 @@ let pp_ast = (ast) =>
   }
 
 let cmp_ast = (ast, ast') =>
-  switch (
+  R.Infix.(switch (
     ast   >>= (ast) =>
     ast'  >>| (ast') =>
     List.fold_left2((acc, e, e') => acc && assert_expr_equal(e, e'), true, ast, ast')
   ) {
   | Ok(true) => true
   | _ => false
-  };
+  });
 
 let make_single_test = ((mesh_src, expected)) =>
-  String.escaped(mesh_src) >:: (_) => assert_equal(~cmp=cmp_ast, ~printer=pp_ast, expected, Mesh.parse_file(mesh_src));
+  String.escaped(mesh_src) >:: OUnitLwt.lwt_wrapper((_) => Mesh.parse(mesh_src) >|= (ast) => assert_equal(~cmp=cmp_ast, ~printer=pp_ast, expected, ast));
 
 let suite = 
   "test_parser" >::: List.map(make_single_test, test_cases);

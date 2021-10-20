@@ -1,0 +1,4 @@
+(library
+ (name graphql)
+ (libraries easy_logging rresult yojson piaf lwt graphql_ppx.base)
+ (preprocess (pps ppx_string graphql_ppx)))

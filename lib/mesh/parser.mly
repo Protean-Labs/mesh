@@ -1,6 +1,6 @@
 %{
-  open Syntax
-  open Syntax_util
+  open Parsetree
+  open Parsetree_util
 
   open Primitives
 
@@ -14,6 +14,7 @@
 %token <int>    INT
 %token <float>  FLOAT
 %token <string> STRING
+%token <string * string * string> EXTENSION
 
 %token <string> LIDENT
 %token <string> UIDENT
@@ -48,8 +49,8 @@
 %nonassoc UNIT
 %nonassoc EMPTY
 
-// %start <Syntax.expr> expr
-%start <Syntax.expr list> file
+// %start <Parsetree.expr> expr
+%start <Parsetree.expr list> file
 
 %on_error_reduce expr
 %%
@@ -71,11 +72,11 @@ expr:
   
   | EXTERNAL p = simple_pattern EQUALS v = STRING           
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELet (p, primitive_of_name v)) }
-  
-  | op = OPERATOR e = expr                                  
+    
+  | op = OPERATOR e = expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EVar ([], op)), e)) }
   
-  | e1 = expr op = OPERATOR e2 = expr                       
+  | e1 = expr op = OPERATOR e2 = expr
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EApp (mk_expr (EApp (mk_expr (EVar ([], op)), e1)), e2)) }
   
   | MODULE modname = UIDENT EQUALS
@@ -85,6 +86,17 @@ expr:
   | e = expr DOT field = LIDENT
     { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ERecSelect (e, field)) }
 
+  | ext = EXTENSION
+    { let (extname, extarg, body) = ext in
+      match extname with
+      | "graphql" -> 
+        let query = Extensions.Graphql.(parse @@ lex(body)) in
+        mk_expr ~loc:(mklocation $symbolstartpos $endpos) (EGraphql (extarg, body, query))
+      | name -> raise (Parsing_error [%string "Unknown extension %{name}"]) }
+
+  | lit = literal                                           
+    { mk_expr ~loc:(mklocation $symbolstartpos $endpos) (ELit lit) }
+    
   | e = op_bind                                             { e }
   | e = eliteral                                            { e }
   | e = braced_expr                                         { e }

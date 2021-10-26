@@ -214,20 +214,19 @@ let test_cases = [
         ("subgraphDeployment", VRecord([("id", VString("0x666d78959706d7e1ed20befeb1d2c9a4e512a22931d8e22928b1f63ce48fcb40"))]))
       ])))),
     ]))))])]),
-  // ("Graphql.execute(```graphql(https://api.thegraph.com/subgraphs/name/convex-community/convex-votium)
-  //     query {
-  //       bribes {
-  //         id
-  //         epoch {
-  //           id
-  //         }
-  //         token
-  //         amount
-  //       }
-  //     }
-  // ```);",
-  //   [value_of_json("data.json")])
-
+  ("Graphql.execute(```graphql(https://api.thegraph.com/subgraphs/name/convex-community/convex-votium)
+      query {
+        bribes {
+          id
+          epoch {
+            id
+          }
+          token
+          amount
+        }
+      }
+  ```);",
+    [value_of_json([%string {|%{Sys.getenv("TEST_DIR")}/subgraph-test-data1.json|}])])
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
 let pp_value = (values) => 

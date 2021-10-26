@@ -3,13 +3,20 @@
   "esy": {
     "build": "dune build -p mesh-engine",
     "buildDev":
-      "dune build --promote-install-files --root . --only-packages mesh-engine"
+      "dune build --promote-install-files --root . --only-packages mesh-engine",
+    "exportedEnv": {
+      "TEST_DIR": {
+        "val": "#{self.root}/test",
+        "scope": "local"
+      }
+    }
   },
   "scripts": {
     "doc": "esy dune build @doc-private",
     "mesh-engine": "esy x mesh-engine",
     "install-kernel": "sh jupyter-kernel/install.sh",
-    "test": "esy x dune runtest"
+    "test": "esy x dune runtest",
+    "test-dir": "esy x echo #{self.target_dir}"
   },
   "dependencies": {
     "@opam/bos": "0.2.0",

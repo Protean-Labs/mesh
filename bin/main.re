@@ -2,6 +2,7 @@ open Rresult;
 open Lwt_result.Infix;
 
 let () = {
+  print_endline([%string {|$TEST_DIR: %{Sys.getenv("TEST_DIR")}|}])
   switch (
     Lwt_main.run @@ (
       Mesh.parse(Sys.argv[1])        >>= (ast) => 

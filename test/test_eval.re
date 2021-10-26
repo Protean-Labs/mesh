@@ -4,6 +4,29 @@ open Lwt.Infix;
 
 open Mesh.Eval;
 
+let value_of_json = (path) =>
+  Yojson.Basic.from_file(path)
+  |> value_of_yojson;
+
+let standardize = (value) => {
+  let rec standardize = (value) =>
+    switch (value) {
+    | VRecord(fields) => 
+      let fields' = List.map(((name, value)) => (name, standardize(value)), fields);
+      VRecord(List.sort(((name, _), (name', _)) => String.compare(name, name'), fields'))
+    | VList(values) => VList(List.map(standardize, values))
+    | VTuple(values) => VTuple(List.map(standardize, values))
+    | VOpt(Some(value)) => VOpt(Some(standardize(value)))
+    | _ => value
+    };
+  
+  R.map((values) =>
+    List.map(standardize, values),
+    value
+  );  
+};
+  
+
 let test_cases = [
   // Literals
   ("1;",                                    [VInt(1)]),
@@ -144,7 +167,66 @@ let test_cases = [
         }
       }
     ```);",
-    [VRecord([("country", VOpt(Some(VRecord([("name", VString("Brazil"))]))))])])
+    [VRecord([("country", VOpt(Some(VRecord([("name", VString("Brazil"))]))))])]),
+  ("Graphql.execute(```graphql(https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2)
+      query {
+        pairs(first: 1) {
+          id
+        }
+      }
+    ```);",
+    [VRecord([("pairs", VList([VRecord([("id", VString("0x00004ee988665cdda9a1080d5792cecd16dc1220"))])]))])]),
+  ("Graphql.execute(```graphql(https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2)
+      query {
+        pairs(first: 1) {
+          token0 {
+            symbol
+          }
+          id
+        }
+      }
+    ```);",
+    [VRecord([("pairs", VList([VRecord([
+      ("id", VString("0x00004ee988665cdda9a1080d5792cecd16dc1220")),
+      ("token0", VRecord([("symbol", VString("SLC"))]))
+    ])]))])]),
+  ({|Graphql.execute(```graphql(https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-mainnet)
+      query {
+        subgraph(id: "0x673b6e9fe607f6ddf4a4f25b386b846c5c82995e-2") {
+          id
+          displayName
+          image
+          currentVersion {
+            id
+            subgraphDeployment {
+              id
+            }
+          }
+        }
+      }
+    ```);|},
+    [VRecord([("subgraph", VOpt(Some(VRecord([
+      ("id", VString("0x673b6e9fe607f6ddf4a4f25b386b846c5c82995e-2")),
+      ("displayName", VOpt(Some(VString("PoolTogether")))),
+      ("image", VOpt(Some(VString("https://ipfs.network.thegraph.com/api/v0/cat?arg=QmUKg8NDZKgfF2aB7aHJ4xiz9rzLUZP1RHcAjRKG6rG8oz")))),
+      ("currentVersion", VOpt(Some(VRecord([
+        ("id", VString("0x673b6e9fe607f6ddf4a4f25b386b846c5c82995e-2-0")),
+        ("subgraphDeployment", VRecord([("id", VString("0x666d78959706d7e1ed20befeb1d2c9a4e512a22931d8e22928b1f63ce48fcb40"))]))
+      ])))),
+    ]))))])]),
+  // ("Graphql.execute(```graphql(https://api.thegraph.com/subgraphs/name/convex-community/convex-votium)
+  //     query {
+  //       bribes {
+  //         id
+  //         epoch {
+  //           id
+  //         }
+  //         token
+  //         amount
+  //       }
+  //     }
+  // ```);",
+  //   [value_of_json("data.json")])
 
 ] |> List.map(((mesh_src, expected)) => (mesh_src, R.ok(expected)));
 
@@ -159,7 +241,7 @@ let pp_value = (values) =>
 let make_single_test = ((mesh_src, expected)) =>
   String.escaped(mesh_src) >:: OUnitLwt.lwt_wrapper((_) => 
     Lwt_result.map(fst, Mesh.parse_eval(mesh_src)) >|= (values) => 
-    assert_equal(~printer=pp_value, expected, values)
+    assert_equal(~printer=pp_value, standardize(expected), standardize(values))
   );
 
 let suite = 

@@ -23,6 +23,12 @@ module Stdlib = {
     external foldr = "list_foldr";
   };
 
+  module Option = {
+    external some = "option_some";
+    external none = "option_none";
+    external get = "option_get";
+  };
+
   let cons = List.cons;
 
   let (+) = Int.add;

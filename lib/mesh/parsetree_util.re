@@ -106,6 +106,10 @@ and string_of_primitive = (~level=0, prim) => {
   | PListMapi(e1, e2)   => [%string "%{indent}(list_mapi\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PListFoldl(e1, e2, e3)  => [%string "%{indent}(list_foldl\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
   | PListFoldr(e1, e2, e3)  => [%string "%{indent}(list_foldr\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}\n%{string_of_expr ~level:(level + 1) e3}"]
+  // Option primitive functions
+  | POptionSome(e1)     => [%string "%{indent}(option_some\n%{string_of_expr ~level:(level + 1) e1})"]
+  | POptionNone         => [%string "%{indent}(option_none)"]
+  | POptionGet(e1, e2)  => [%string "%{indent}(option_get\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2})"]
   // GraphQL primitive functions
   // | PGraphqlExec(e1, e2) => [%string "%{indent}(graphql_exec\n%{string_of_expr ~level:(level + 1) e1}\n%{string_of_expr ~level:(level + 1) e2}"]
   | PGraphqlExec(e)     => [%string "%{indent}(graphql_exec\n%{string_of_expr ~level:(level + 1) e}"]

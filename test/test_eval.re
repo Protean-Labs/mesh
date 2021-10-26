@@ -136,6 +136,21 @@ let test_cases = [
     List.foldr((x, acc) => acc + x, l, 0);",                      
     [VInt(6)]),
 
+  // Options
+  ("Option.some(1);", 
+    [VOpt(Some(VInt(1)))]),
+  
+  ("Option.none;", 
+    [VOpt(None)]),
+  
+  ("let maybe_int = Option.some(1);
+    Option.get(10, maybe_int);", 
+    [VInt(1)]),
+
+  ("let maybe_int = Option.none;
+    Option.get(10, maybe_int);", 
+    [VInt(10)]),
+
   // Graphql
   ("Graphql.execute(```graphql(https://countries.trevorblades.com/)
       query {

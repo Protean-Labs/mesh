@@ -5,6 +5,31 @@ open Lwt.Infix;
 open Mesh.Typetree;
 open Mesh.Typetree_util;
 
+let rec assert_type_equal = (typ, typ') => 
+  switch (typ, typ') {
+  | (TConst(t), TConst(t'))         => t == t'
+  | (TFun(t1, t2), TFun(t1', t2'))
+  | (TApp(t1, t2), TApp(t1', t2'))  => assert_type_equal(t1, t1') && assert_type_equal(t2, t2')
+  | (TTuple(typs), TTuple(typs'))   => List.fold_left2((acc, typ, typ') => acc && assert_type_equal(typ, typ'), true, typs, typs')
+  | (TList(t), TList(t'))           => assert_type_equal(t, t')
+  | (TVar(tvar), TVar(tvar'))       => assert_tvar_equal(tvar^, tvar'^)
+  | (TRec(t), TRec(t'))             => assert_type_equal(t, t')
+  | (TRowEmpty, TRowEmpty)          => true
+  | (TRowExtend(name, t1, t2), TRowExtend(name', t1', t2')) =>
+    name == name' && assert_type_equal(t1, t1') && assert_type_equal(t2, t2')
+  | (TOpt(t), TOpt(t'))             => assert_type_equal(t, t')
+  | (TTag(t), TTag(t'))             => assert_type_equal(t, t')
+  | (TMod(tenv), TMod(tenv'))       => List.fold_left2((acc, (_, typ), (_, typ')) => acc && assert_type_equal(typ, typ'), true, tenv, tenv')
+  | _ => false
+  }
+and assert_tvar_equal = (tvar, tvar') =>
+  switch (tvar, tvar') {
+  | (Free(_), Free(_))                => false
+  | (Constrained(t), Constrained(t')) => assert_type_equal(t, t')
+  | (Quantified(id), Quantified(id')) => id == id'
+  | _ => false
+  };
+
 let test_cases = [
   ("1;",                 [TConst("int")]),
   ("1.0;",                [TConst("float")]),
@@ -182,6 +207,7 @@ let test_cases = [
       ])
     ]
   ),
+  // Stdlib
   ("let l = [1, 2, 3];
     let f = (x) => x + 1;
     let x = List.map(f, l);
@@ -206,6 +232,26 @@ let test_cases = [
     x;",                      
     [TConst("unit"), TConst("unit"), TConst("int")]),
 
+  // Options
+  ("let x = Option.some(1);
+    x;", 
+    [TConst("unit"), TOpt(TConst("int"))]),
+
+  // TODO: Figure out how to make tests with free/quantified variables
+  // ("let x = Option.none;
+  //   x;",
+  //   [TConst("unit"), TOpt(TConst("int"))]),
+  
+  ("let maybe_int = Option.some(1);
+    let x = Option.get(10, maybe_int);
+    x;", 
+    [TConst("unit"), TConst("unit"), TConst("int")]),
+
+  ("let maybe_int = Option.none;
+    let x = Option.get(10, maybe_int);
+    x;", 
+    [TConst("unit"), TConst("unit"), TConst("int")]),
+
   ("let data = Graphql.execute(```graphql(https://countries.trevorblades.com/)
       query {
         country(code: \"BR\") {
@@ -220,13 +266,23 @@ let pp_typ_signatures = (typs) =>
   switch (typs) {
   | Error(`Msg(msg)) => msg
   | Ok(l) => List.map(string_of_typ, l) |> String.concat(",");
-  }
+  };
+
+let cmp_type = (typs, typs') =>
+  R.Infix.(switch (
+    typs   >>= (typs) =>
+    typs'  >>| (typs') =>
+    List.fold_left2((acc, typ, typ') => acc && assert_type_equal(typ, typ'), true, typs, typs')
+  ) {
+  | Ok(true) => true
+  | _ => false
+  });
 
 
 let make_single_test = ((mesh_src, expected)) =>
   String.escaped(mesh_src) >:: OUnitLwt.lwt_wrapper((_) => 
     Lwt_result.map(fst, Mesh.parse_infer(mesh_src)) >|= (typs) => 
-    assert_equal(~printer=pp_typ_signatures, expected, typs)
+    assert_equal(~cmp=cmp_type, ~printer=pp_typ_signatures, expected, typs)
   )
 
 let suite = 

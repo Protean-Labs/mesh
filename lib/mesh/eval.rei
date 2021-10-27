@@ -25,6 +25,7 @@ let eval: (~env:environment=?) => list(expr) => eval_result;
 // Values helpers
 // ================================================================
 let string_of_value: (~level:int=?) => value => string;
+let string_of_env: environment => string;
 
 let value_of_yojson: Yojson.Basic.t => value;
 let value_to_yojson: value => Yojson.Basic.t;

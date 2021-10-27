@@ -305,6 +305,20 @@ let rec eval_exn = (ret: list(value), env, e: list(expr)) => {
       | _ => raise(Runtime_error([%string "PListFoldl: Unexpected types"]))
       }
 
+    // Option primitive functions
+    | POptionSome(e) =>
+      eval_value(env, e) >|= (value) => VOpt(Some(value))
+
+    | POptionNone => Lwt.return @@ VOpt(None)
+
+    | POptionGet(e1, e2) =>
+      Lwt.both(eval_value(env, e1), eval_value(env, e2)) >|= ((e1, e2)) =>
+      switch (e1, e2) {
+      | (v, VOpt(None))
+      | (_, VOpt(Some(v))) => v
+      | _ => raise(Runtime_error([%string "POptionGet: Unexpected types"]))
+      }
+
     // GraphQL primitive functions
     // TODO: Revisit graphql_execute with URI
     // | PGraphqlExec(e1, e2) => Lwt.both(eval_value(env, e1), eval_value(env, e2)) >>= (e) => switch (e) { | (VString(uri), VGraphqlQuery(query)) => eval_graphql(uri, query) | _ => raise(Runtime_error([%string "PGraphqlExec: Unexpected types"]))}

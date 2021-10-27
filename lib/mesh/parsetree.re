@@ -63,6 +63,10 @@ and primitive =
   | PListMapi(expr, expr)
   | PListFoldl(expr, expr, expr)
   | PListFoldr(expr, expr, expr)
+  // Option primitive functions
+  | POptionSome(expr)
+  | POptionNone
+  | POptionGet(expr, expr)
   // GraphQL primitive functions
   // | PGraphqlExec(expr, expr)
   // TODO: Revisit graphql_execute with URI  

@@ -40,6 +40,11 @@ let primitive_of_name = fun
   | "list_foldl"  => mk_3args_primitive(mk_expr(EPrim(PListFoldl(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
   | "list_foldr"  => mk_3args_primitive(mk_expr(EPrim(PListFoldr(mk_evar("a"), mk_evar("b"), mk_evar("c")))))
 
+  // Option primitive functions
+  | "option_some"  => mk_1arg_primitive(mk_expr(EPrim(POptionSome(mk_evar("a")))))
+  | "option_none"  => mk_expr(EPrim(POptionNone))
+  | "option_get"  => mk_2args_primitive(mk_expr(EPrim(POptionGet(mk_evar("a"), mk_evar("b")))))
+
   // GraphQL
   // | "graphql_execute" => mk_2args_primitive(mk_expr(EPrim(PGraphqlExec(mk_evar("a"), mk_evar("b")))))
   // TODO: Revisit graphql_execute with URI

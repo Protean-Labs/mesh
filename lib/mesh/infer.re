@@ -472,6 +472,19 @@ let rec infer_exn = (env, level, exprs, typs) => {
         let (t1, t2) = (env.new_var(level), env.new_var(level));
         infer_primitive([e1, e2, e3], [TFun(t1, TFun(t2, t2)), TList(t1), t2], t2)
 
+      // Option primitive functions
+      | POptionSome(e) =>
+        let typ = env.new_var(level);
+        infer_primitive([e], [typ], TOpt(typ))
+
+      | POptionNone =>
+        let typ = env.new_var(level);
+        Lwt.return @@ (TOpt(typ), env)
+
+      | POptionGet(e1, e2) =>
+        let typ = env.new_var(level);
+        infer_primitive([e1, e2], [typ, TOpt(typ)], typ)
+
       // Graphql primitive functions
       | PGraphqlExec(e) =>
         let typ = env.new_var(level);

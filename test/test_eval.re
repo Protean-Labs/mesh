@@ -8,6 +8,7 @@ let test_cases = [
   // Literals
   ("1;",                                    [VInt(1)]),
   ("\"hello\";",                            [VString("hello")]),
+  ("(1, let a = 1);",                       [VTuple([VInt(1), VUnit])]),
 
   // Simple identity function
   ("let f = a => a; f(0);",                 [VInt(0)]),

@@ -121,6 +121,14 @@ let rec value_to_yojson = (record) =>
 let eval_graphql = (uri, raw_query, query) => {
   open Typetree;
 
+  let rec order_record_object = (record, obj) =>
+    switch (record) {
+    | TRowExtend(name, _, rest) => 
+      [List.find(((name', _)) => name' == name, obj), ...order_record_object(rest, obj)]
+    | TRowEmpty => []
+    | _ => raise(Runtime_error("order_record_object: unexpected type (not record)"))
+    };
+
   let rec gql_to_value = (typ, data) => 
     switch (typ, data) {
     | (TConst("bool"), `Bool(v))      => VBool(v)
@@ -135,7 +143,7 @@ let eval_graphql = (uri, raw_query, query) => {
       raise(Runtime_error([%string "gql_to_value: Non-matching type-value %{Typetree_util.string_of_typ typ} %{Yojson.Basic.to_string value}"]))
     }
   and gql_assoc_to_value = (typ, data) =>
-    switch (typ, data) {
+    switch (typ, order_record_object(typ, data)) {
     | (TRowExtend(_, typ', typ_rest), [(name, v), ...rest]) => 
       [(name, gql_to_value(typ', v)), ...gql_assoc_to_value(typ_rest, rest)]
     | (TRowEmpty, []) => []
@@ -145,6 +153,8 @@ let eval_graphql = (uri, raw_query, query) => {
 
   Infer.typ_of_graphql_query(uri, query)                          >>= (typ) =>
   Data_source.Graphql.Client.query(Uri.of_string(uri), raw_query) >|= (data) =>
+  // logger#debug("Query type: %s", Typetree_util.string_of_typ(typ)) |> () =>
+  // logger#debug("Query data: %s", Yojson.Basic.to_string(R.get_ok(data))) |> () =>
   switch (R.map(gql_to_value(typ), data)) {
   | Error(`Msg(msg)) => raise(Runtime_error(msg))
   | Ok(r) => r
